@@ -1,0 +1,13 @@
+
+- **BIOS** (Basic Input/Output System): initializes hardware, runs POST  
+- **UEFI** (Unified Extensible Firmware Interface): modern BIOS replacement with advanced features  
+- **POST** (Power-On Self-Test): checks hardware on startup  
+- **MBR** (Master Boot Record): legacy partition table and bootloader location (first 512 bytes)  
+- **GPT** (GUID Partition Table): modern replacement for MBR, supports large disks and more partitions  
+- **Bootloader**: loads OS kernel (e.g., GRUB, LILO)  
+- **GRUB** (GRand Unified Bootloader): popular bootloader, supports multi-OS  
+- **Kernel**: core of the OS, manages hardware and system calls  
+- **init / systemd**: first user-space process started by kernel  
+- **/etc/fstab**: defines mount points  
+- **/boot/**: contains kernel, initramfs, GRUB files  
+- **initramfs**: temporary root filesystem loaded into memory before actual root

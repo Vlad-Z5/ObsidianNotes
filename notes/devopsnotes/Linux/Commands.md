@@ -1,0 +1,171 @@
+
+- **File Operations**
+    - `ls` (lists files) -a: all files; -l: long format; -h: human readable sizes
+    - `cp` (copies files) -r: recursive; -i: prompt before overwrite
+    - `mv` (moves/renames files) -i: prompt before overwrite; -n: no overwrite
+    - `rm` (removes files) -r: recursive; -f: force
+    - `touch` (creates file) -c: don't create if exists; -m: update mtime only
+    - `mkdir` (creates directory) -p: create parent dirs; -v: verbose
+    - `rmdir` (removes empty directory) -p: remove parent dirs
+    - `stat` (file status)
+    - `file` (detects file type)
+    - `basename` (extracts filename from path)
+    - `dirname` (extracts directory path)
+    - `find` (search files) -name: filename; -type: file/dir
+    - `locate` (cashed find) -i: ignore case
+    - `diff` (compares files) -u: unified format; -r: recursive
+- **Text Processing**
+    - `grep` (search text by pattern) -i: ignore case; -r: recursive; -v: invert match; -c: count matches. egrep supports extended regex
+    - `awk` (pattern scanning and processing language) -F: input field separator; '{print $1}': print first field, $0: whole line, FS: field separator, RS: record separator, BEGIN { }: block before input starts, END: after
+    - `sed` (stream editor for filtering and transforming text) -e: script to run; -i: in-place edit; s/pat/repl/g: substitute all patterns, no g: first one; /pat/!d: delete non-matching lines, a, i, c: append, insert, change
+    - `alias short="full string"` to have shortcuts like k instead of kubectl
+    - `cut` (extract sections from each line) -d: delimiter; -f: fields
+    - `sort` (sort lines) -r: reverse; -n: numeric; -u: unique
+    - `uniq` (filter duplicate lines) -c: count occurrences; -d: only duplicates. Use sort then uniq
+    - `tee` (redirect output both to file and stdout) -a: append
+    - `head` (show first lines) -n: number of lines
+    - `tail` (show last lines) -n: number of lines; -f: follow appended data
+    - `diff` (compare files line by line) -u: unified format; -r: recursive directories
+    - `tr` (translate or delete characters) -d: delete; -s: squeeze repeated chars
+    - `wc` (count lines, words, bytes) -l: lines; -w: words; -c: bytes
+    - `xargs` (build argument list for commands) -n: max args per command; -p: prompt before execution
+- **File Permissions**
+    - `chmod` (changes permissions) -R: recursive
+    - `chown` (changes owner) -R: recursive
+    - `chgrp` (changes group) -R: recursive
+    - `umask` (sets default permission mask)
+- **File Viewing**
+    - `cat` (outputs file content) -n: number lines
+    - `less` (views file page by page, better for large files) -N: show line numbers
+    - `more` (views file page by page, simpler)
+    - `head` (first lines) -n: number of lines
+    - `tail` (last lines) -f: follow file
+    - `strings` (extracts printable chars)
+- **Process Management**
+    - `systemctl` (manage systemd services and system state) -start: start service; -stop: stop service; -restart: restart service; -enable: start at boot; -disable: disable at boot; -status: show service status
+    - `ps` (process status) -aux: all processes; -ef: full format
+    - `top` (real-time process viewer) -u: filter by user
+    - `htop` (interactive process viewer), has to be installed
+    - `kill` (terminate process) -9: force kill
+    - `pkill` (kill by name)
+    - `nice` (run with priority) -n: priority
+    - `renice` (change priority) -n: priority
+- **Networking**
+    - `ping` (send ICMP echo) -c: count; -i: interval
+    - `traceroute` (trace route)
+    - `curl` (transfer data) -O: remote name; -L: follow redirects
+    - `wget` (download files) -c: continue; -q: quiet
+    - `netstat` (network status) -tuln: tcp/udp listening
+    - `ss` (socket stats) -tuln: tcp/udp listening
+    - `ifconfig` (network interfaces)
+    - `ip` (network config) addr: show IP addresses; link: show devices
+    - `nslookup` (DNS lookup)
+    - `dig` (DNS query)
+    - `host` (DNS lookup)
+    - `ftp` (file transfer)
+    - `ssh` (secure shell)
+    - `scp` (secure copy)
+    - `rsync` (sync files) -a: archive; -z: compress
+    - `iptables`(firewall) IPv4; in- output and forward; -L, -P: list, default; -A, -I, -D: append, insert, delete; -p protocol; -s, -d: source, destination; -j: action
+- **Disk Usage**
+    - `df` (disk free) -h: human readable
+    - `du` (disk usage) -sh: summary human readable
+    - `mount` (mount filesystem) -t: type
+    - `umount` (unmount filesystem) -f: force
+    - `lsblk` (list block devices)
+    - `fdisk` (partition table)
+    - `parted` (partition tool)
+- **Archiving & Compression**
+    - `tar` (archives) -czf: create gzip; -xzf: extract gzip
+    - `gzip` (compress) -d: decompress
+    - `gunzip` (decompress gzip)
+    - `bzip2` (compress bzip2)
+    - `bunzip2` (decompress bzip2)
+    - `xz` (compress xz)
+    - `unxz` (decompress xz)
+    - `zip` (create zip) -r: recursive
+    - `unzip` (extract zip) -l: list
+- **Package Management (Debian/Ubuntu)**
+    - `apt-get` (package tool) -y: assume yes; update: refresh repos
+    - `apt` (advanced package tool)
+    - `dpkg` (Debian package) -i: install; -r: remove
+    - `apt-cache` (search packages)
+    - `aptitude` (package manager)
+- **System Info**
+    - `uname` (system info) -a: all info
+    - `hostname` (system hostname)
+    - `uptime` (system uptime)
+    - `whoami` (current user)
+    - `id` (user ID info)
+    - `arch` (system architecture)
+    - `lscpu` (CPU info)
+    - `free` (memory usage) -h: human readable
+    - `vmstat` (virtual memory stats)
+    - `lsmem` (memory info)
+    - `lsusb` (USB devices)
+    - `lspci` (PCI devices)
+    - `dmidecode` (hardware info)
+- **User Management**
+    - `useradd` (add user) -m: create home; -s: shell
+    - `userdel` (delete user) -r: remove home
+    - `passwd` (change password)
+    - `groupadd` (add group)
+    - `groupdel` (delete group)
+    - `groups` (show groups)
+    - `id` (show user/group IDs)
+    - `su` (switch user)
+    - `sudo` (run as root)
+- **Shell Command Tools**
+    - `echo` (print text)
+    - `printf` (formatted output)
+    - `env` (show env variables)
+    - `export` (set env variables)
+    - `alias` (create shortcut)
+    - `source` (run script in current shell)
+    - `bash` (start bash shell)
+    - `sh` (start sh shell)
+    - `sleep` (pause execution)
+    - `test` (evaluate expressions)
+- **Disk and Filesystem Repair**
+    - `fsck` (filesystem check)
+    - `e2fsck` (ext2/3/4 check)
+    - `tune2fs` (filesystem parameters)
+    - `badblocks` (find bad sectors)
+    - `mount` (mount filesystem)
+    - `umount` (unmount filesystem)
+- **Logging and Monitoring**
+    - `journalctl` (systemd logs)
+    - `tail` (view logs) -f: follow
+    - `dmesg` (kernel messages)
+    - `logger` (write to syslog)
+    - `lsof` (list open files)
+    - `strace` (trace system calls)
+    - `tcpdump` (capture packets)
+- **Development Tools**
+    - `gcc` (C compiler)
+    - `make` (build automation)
+    - `gdb` (debugger)
+    - `git` (version control)
+    - `svn` (subversion)
+- **Time and Date**
+    - `date` (show/set date)
+    - `timedatectl` (time settings)
+    - `hwclock` (hardware clock)
+    - `cal` (calendar)
+- **System Control**
+    - `reboot` (restart system)
+    - `shutdown` (power off)
+    - `systemctl` (systemd control) start: start service; stop: stop service; status: status
+    - `service` (init script control)
+- **Networking Utilities**
+    - `hostnamectl` (set hostname)
+    - `firewall-cmd` (firewalld control)
+    - `nmap` (network scanner)
+- **Miscellaneous**
+    - `clear` (clear terminal)
+    - `history` (command history)
+    - `watch` (run command periodically)
+    - `cron` (schedule jobs)
+    - `crontab` (edit cron jobs)
+    - `sleep` (delay execution)
+    - `time` (measure execution time)

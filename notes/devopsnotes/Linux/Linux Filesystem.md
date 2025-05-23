@@ -1,0 +1,33 @@
+
+- `/`: Root of the filesystem
+    - `/bin`: Essential user binaries (e.g., `ls`, `cp`)
+    - `/boot`: Boot loader files (e.g., `vmlinuz`, `grub/`)
+    - `/dev`: Device files (e.g., `/dev/sda`, `/dev/null`)
+    - `/etc`: System-wide configuration files
+        - `/etc/passwd`: User account information
+        - `/etc/fstab`: Filesystem mount table
+    - `/home`: User home directories
+        - `/home/alice`, `/home/bob`: Example user folders
+    - `/lib`: Essential shared libraries for `/bin` and `/sbin`
+    - `/lib64`: 64-bit system libraries (on 64-bit systems)
+    - `/media`: Mount point for removable media (e.g., USB)
+    - `/mnt`: Temporary mount point for externally mounted filesystems (e.g. NFS)
+    - `/opt`: Optional third-party application software
+    - `/proc`: Virtual filesystem with process and kernel info
+        - `/proc/1`: Info for process with PID 1 (usually `systemd`)
+    - `/root`: Home directory of the `root` user
+    - `/run`: Runtime data for processes (cleared on boot)
+    - `/sbin`: Essential system binaries (e.g., `ip`, `reboot`)
+    - `/srv`: Data for services like HTTP or FTP
+    - `/sys`: Virtual filesystem exposing hardware and kernel data
+    - `/tmp`: Temporary files (cleared on reboot)
+    - `/usr`: Secondary hierarchy for read-only user data
+        - `/usr/bin`: Non-essential user binaries
+        - `/usr/sbin`: Non-essential system binaries
+        - `/usr/lib`: Libraries for `/usr/bin` and `/usr/sbin`
+        - `/usr/local`: Locally compiled software
+        - `/usr/share`: Architecture-independent shared data
+    - `/var`: Variable files (logs, mail, spool)
+        - `/var/log`: Log files
+        - `/var/tmp`: Temporary files kept between reboots
+        - `/var/www`: Web server content (if running a web server)
