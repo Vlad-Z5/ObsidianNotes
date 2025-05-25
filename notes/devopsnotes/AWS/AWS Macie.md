@@ -1,0 +1,15 @@
+Data security service that uses machine learning to automatically discover, classify, and protect sensitive data
+- **Types:**
+    - **S3 Data Discovery:** Automated scanning of S3 buckets
+    - **Sensitive Data Detection:** ML-powered classification
+- **Features:**
+    - Automated data classification (PII, PHI, financial data)
+    - Data access anomaly detection
+    - Detailed findings with risk scores
+    - Integration with Security Hub and EventBridge
+    - Custom data identifiers and classification rules
+    - Compliance reporting and dashboards
+- **Use Cases:**
+    - GDPR, HIPAA, and PCI DSS compliance
+    - Data loss prevention (DLP) strategies
+    - Security incident response for data breaches

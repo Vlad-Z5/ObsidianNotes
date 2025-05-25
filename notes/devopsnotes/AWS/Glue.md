@@ -1,0 +1,16 @@
+Fully managed extract, transform, and load (ETL) service for data preparation
+- **Types:**
+    - **Glue Jobs:** Serverless ETL processing
+    - **Glue Crawlers:** Automatic schema discovery
+    - **Glue DataBrew:** Visual data preparation
+- **Features:**
+    - Automatic schema discovery and cataloging
+    - Code generation for ETL jobs in Python/Scala
+    - Built-in transformation and data quality functions
+    - Job scheduling and monitoring
+    - Integration with data lakes and warehouses
+    - Data lineage and impact analysis
+- **Use Cases:**
+    - Data lake ETL processing
+    - Data warehouse preparation
+    - Data quality and validation

@@ -1,0 +1,15 @@
+- **Type:** Persistent, block-level storage for EC2, limited to one AZ, to replicate use snapshot
+- **Attached To:** One EC2 instance at a time (can detach/attach), while EC2 can be attached to many EBS volumes
+- **Provisioned capacity**: size in GB and IOPS, can be increased
+- **Persistence:** Data persists beyond instance termination (unless "Delete on Termination" is enabled)
+- **Snapshot:** Point-in-time backup stored in S3 (incremental after first snapshot)
+- **Encryption:** Can be encrypted at rest (AES-256), in transit, and during snapshot copy
+- **Performance Modes:**
+	  - **gp3:** General-purpose SSD (baseline + provisioned IOPS/throughput)
+	  - **gp2:** Older general-purpose SSD (baseline based on size)
+	  - **io2/io1:** High-performance SSD for critical workloads (provisioned IOPS), has option to attach to multiple EC2
+	  - **st1:** Throughput-optimized HDD (big, sequential workloads)
+	  - **sc1:** Cold HDD (infrequently accessed)
+- **Resize:** Volume size and type can be modified without downtime
+- **Multi-Attach:** io1/io2 can attach to multiple instances in the same AZ (only for certain use cases)
+-  Main use cases: databases, file systems, boot volumes, and apps requiring persistent storage.

@@ -1,0 +1,17 @@
+Unified interface for managing AWS infrastructure and applications
+- **Types:**
+    - **Parameter Store:** Secure configuration data storage
+    - **Session Manager:** Browser-based shell access
+    - **Patch Manager:** Automated patching
+    - **Run Command:** Remote command execution
+- **Features:**
+    - Inventory collection and compliance reporting
+    - Maintenance Windows for scheduled tasks
+    - Automation documents for operational procedures
+    - OpsCenter for operational issue management
+    - Application Manager for application-centric operations
+    - Incident Manager for incident response
+- **Use Cases:**
+    - Configuration management and compliance
+    - Patch management and security updates
+    - Operational automation and incident response

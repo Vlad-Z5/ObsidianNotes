@@ -1,0 +1,18 @@
+- **Purpose:** Distributes incoming traffic across multiple targets (EC2, containers, IPs) to improve availability and fault tolerance
+- **Types:**
+	- **Classic Load Balancer (CLB):** Legacy, supports EC2-Classic networks, basic layer 4 & 7 features, good for OpsWorks
+	- **Application Load Balancer (ALB):** Layer 7 (HTTP/HTTPS) load balancing, supports host/path-based routing and redirects to HTTP/HTTPS WebSocket HTTP/2, can route to multiple target groups, health checks are on the target group level
+	- **Network Load Balancer (NLB):** Layer 4 (TCP/UDP) load balancing, handles millions requests per second, static IP support
+	- **Gateway Load Balancer (GLB):** Layer 3 For deploying, scaling, and managing virtual appliances (firewalls, IDS/IPS)
+- **Features:**
+	- Health checks to route traffic only to healthy targets
+	- SSL/TLS termination (ALB, NLB with TLS listeners)
+	- Integration with Auto Scaling Groups
+	- Support for sticky sessions
+	- Cross Zone Load Balancing (ALB and CLB, NLB can be enabled for additional payment)
+	- Deregistration Delay 1 to 3600 sec, default 300 so EC2 persists for a bit to finish the work
+- **Use Cases:**
+	- ALB for modern web apps needing advanced routing
+	 - NLB for extreme performance and static IP requirements
+	 - CLB for legacy support
+	 - GLB for network security appliances

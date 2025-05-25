@@ -1,0 +1,16 @@
+Tracks AWS resource configurations and changes for compliance and governance
+- **Types:**
+    - **Configuration Recorder:** Tracks resource configurations
+    - **Config Rules:** Automated compliance checking
+    - **Conformance Packs:** Pre-built compliance templates
+- **Features:**
+    - Resource relationship mapping
+    - Configuration change notifications
+    - Compliance dashboards and reporting
+    - Remediation actions for non-compliant resources
+    - Multi-account and multi-region aggregation
+    - Integration with Systems Manager for automation
+- **Use Cases:**
+    - Compliance monitoring and reporting
+    - Change management and audit trails
+    - Security posture assessment

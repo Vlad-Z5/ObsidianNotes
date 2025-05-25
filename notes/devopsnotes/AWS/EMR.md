@@ -1,0 +1,16 @@
+Managed cluster platform for big data frameworks like Apache Spark and Hadoop
+- **Types:**
+    - **EMR on EC2:** Traditional cluster management
+    - **EMR on EKS:** Spark jobs on Kubernetes
+    - **EMR Serverless:** On-demand Spark and Hive processing
+- **Features:**
+    - Support for Spark, Hadoop, HBase, Presto, Flink
+    - Auto-scaling based on workload demands
+    - Spot Instance integration for cost optimisation
+    - Notebook environments for interactive analysis
+    - Integration with S3, RDS, and other AWS services
+    - Security features including encryption and IAM
+- **Use Cases:**
+    - Large-scale data processing and analytics
+    - Machine learning model training
+    - Log analysis and data mining

@@ -1,0 +1,17 @@
+Recommends optimal AWS compute resources using machine learning
+- **Types:**
+    - **EC2 Instances:** Right-sizing recommendations
+    - **Auto Scaling Groups:** Optimization suggestions
+    - **EBS Volumes:** Storage optimization
+    - **Lambda Functions:** Memory configuration optimization
+- **Features:**
+    - ML-based performance analysis
+    - Cost savings calculations
+    - Performance risk assessments
+    - Integration with Cost Explorer
+    - Exportable recommendations
+    - Organization-wide analysis
+- **Use Cases:**
+    - Right-sizing EC2 instances for cost optimization
+    - Performance optimization without over-provisioning
+    - Capacity planning and resource optimization

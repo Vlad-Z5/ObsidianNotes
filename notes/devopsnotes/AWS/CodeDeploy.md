@@ -1,0 +1,16 @@
+- Automated deployment service for applications to various compute platforms
+- **Types:**
+    - **EC2/On-Premises:** Blue/green and in-place deployments
+    - **Lambda:** Traffic shifting deployments
+    - **ECS:** Blue/green deployments for containers
+- **Features:**
+    - Multiple deployment strategies (rolling, blue/green, canary)
+    - Automatic rollback on deployment failures
+    - Load balancer integration for zero-downtime deployments
+    - Application revision management
+    - Deployment monitoring and notifications
+    - Integration with CI/CD pipelines
+- **Use Cases:**
+    - Zero-downtime application deployments
+    - Automated rollback on failures
+    - Gradual feature releases with canary deployments

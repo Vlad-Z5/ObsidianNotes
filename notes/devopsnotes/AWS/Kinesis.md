@@ -1,0 +1,23 @@
+Platform for streaming data on AWS with real-time processing capabilities
+- **Types:**
+    - **Data Streams:** Real-time data streaming
+	    - Retention up to 1 year
+	    - Consumers can reprocess (replay) data
+	    - Data can't be deleted, only expired, <1 MB
+	    - Data is ordered with the same partition ID
+    - **Data Firehose:** Batch delivery to destinations
+	    - Supports CSV, JSON, Parquet, Avro, Raw or Binary
+	    - Converts to Parquet/ORC, compresses with gzip, transforms with Lambda
+    - **Data Analytics:** SQL queries on streaming data
+    - **Video Streams:** Video streaming and analysis
+- **Features:**
+    - Real-time data ingestion and processing
+    - Automatic scaling and durability
+    - Integration with Lambda, EMR, and analytics services
+    - Encryption in transit and at rest
+    - Multiple consumer applications support
+    - Replay capability for historical analysis
+- **Use Cases:**
+    - Real-time analytics and monitoring
+    - IoT data processing
+    - Log and event data collection

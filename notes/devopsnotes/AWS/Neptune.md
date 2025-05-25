@@ -1,0 +1,15 @@
+Fully managed graph database service supporting property graph and RDF models
+- **Types:**
+    - **Property Graph:** Apache TinkerPop Gremlin
+    - **RDF Graph:** W3C SPARQL query language
+- **Features:**
+    - High availability with read replicas across AZs
+    - Continuous backup to S3 with point-in-time recovery
+    - Fast cloning for development/testing
+    - HTTPS encrypted connections
+    - IAM database authentication
+    - Global Database for cross-region replication
+- **Use Cases:**
+    - Social networking and recommendation engines
+    - Fraud detection and network analysis
+    - Knowledge graphs and life sciences research

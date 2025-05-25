@@ -1,0 +1,15 @@
+Continuous delivery service for fast and reliable application and infrastructure updates
+- **Types:**
+    - **Build Pipelines:** Source → Build → Test → Deploy
+    - **Infrastructure Pipelines:** Infrastructure as Code deployments
+- **Features:**
+    - Visual pipeline editor and execution tracking
+    - Integration with AWS and third-party tools
+    - Parallel and sequential action execution
+    - Manual approval gates
+    - Pipeline templates and cross-region deployments
+    - CloudWatch Events integration for triggering
+- **Use Cases:**
+    - End-to-end CI/CD automation
+    - Multi-environment deployment orchestration
+    - Infrastructure as Code deployments

@@ -1,0 +1,15 @@
+- Managed GraphQL service for building data-driven applications
+- **Types:**
+    - **GraphQL APIs:** Query, mutation, and subscription operations
+    - **Real-time Subscriptions:** WebSocket-based live updates
+- **Features:**
+    - Multiple data source integration (DynamoDB, RDS, HTTP, Lambda)
+    - Real-time subscriptions with filtering
+    - Offline synchronization for mobile apps
+    - Fine-grained authorization with multiple auth modes
+    - Caching and performance optimization
+    - Schema stitching and federation
+- **Use Cases:**
+    - Mobile and web application backends
+    - Real-time collaborative applications
+    - Unified API layer for microservices

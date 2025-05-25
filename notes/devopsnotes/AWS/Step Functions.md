@@ -1,0 +1,15 @@
+Visual workflow service for coordinating distributed applications using state machines
+- **Types:**
+    - **Standard Workflows:** Long-running, exactly-once execution
+    - **Express Workflows:** High-volume, short-duration, at-least-once
+- **Features:**
+    - Visual workflow designer and execution tracking
+    - Built-in error handling, retry logic, and parallel processing
+    - Integration with 200+ AWS services
+    - Human approval tasks and wait states
+    - Conditional branching and dynamic parallelism
+    - Execution history and debugging capabilities
+- **Use Cases:**
+    - Complex business process automation
+    - ETL pipeline orchestration
+    - Human approval workflows

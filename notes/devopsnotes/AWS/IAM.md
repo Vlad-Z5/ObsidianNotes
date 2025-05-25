@@ -5,6 +5,7 @@
 - Session based issued by STS to create token or assume role
 - **SCP**: Org-level policy that limits permissions across accounts. Allow in SCP actually denies everything, but the allow list
 - Permission Boundary: IAM user or role equivalent of SCP
+
 **User:** A single entity (person, app, or svc)
 **Group:** Collection of users, can't contain groups
 **Role:** User without credentials. For temporary access

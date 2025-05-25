@@ -1,0 +1,16 @@
+Web service for orchestrating and automating data movement and transformation
+- **Types:**
+    - **Data Pipeline Activities:** EMR, Hive, Pig, SQL, Shell commands
+    - **Schedule-based:** Time-based execution
+    - **Event-driven:** Triggered by data availability
+- **Features:**
+    - Visual pipeline designer
+    - Built-in retry logic and error handling
+    - Integration with EMR, RDS, S3, and Redshift
+    - Precondition checking before execution
+    - SNS notifications for pipeline status
+    - Template library for common patterns
+- **Use Cases:**
+    - Regular data processing workflows
+    - Data warehouse loading
+    - Backup and archival processes

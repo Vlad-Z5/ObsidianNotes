@@ -1,0 +1,15 @@
+**Core Principles:** Visualisation platform for observability, multi-datasource support, dashboard composition, alerting engine, templating system, user management and permissions
+
+## [[Grafana Installation & Setup]] 
+## [[Data Sources]] 
+## [[Dashboard Creation]] 
+## [[Panel Types]] 
+## [[Queries & Transformations]] 
+## [[Variables & Templating]] 
+## [[Alerting]] 
+## [[Authentication & Security]] 
+## [[Provisioning]] 
+## [[API Usage]] 
+## [[Plugins]] 
+## [[Performance Optimization]] 
+## [[Troubleshooting]]

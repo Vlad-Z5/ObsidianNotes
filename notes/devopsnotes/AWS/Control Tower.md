@@ -1,0 +1,15 @@
+Provides pre-configured multi-account AWS environment with governance guardrails
+- **Types:**
+    - **Landing Zone:** Pre-configured multi-account environment
+    - **Account Factory:** Automated account provisioning
+- **Features:**
+    - Pre-configured organizational units (Security, Sandbox, etc.)
+    - 20+ preventive and detective guardrails
+    - Automated account provisioning with baseline configurations
+    - Centralized logging and monitoring setup
+    - Integration with Service Catalog for account vending
+    - Drift detection and remediation
+- **Use Cases:**
+    - Quick setup of secure multi-account environments
+    - Standardized account provisioning for enterprises
+    - Governance and compliance automation

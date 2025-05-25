@@ -1,0 +1,16 @@
+Create and manage catalogs of IT services approved for use on AWS
+- **Types:**
+    - **Products:** CloudFormation templates as services
+    - **Portfolios:** Collections of products
+    - **Constraints:** Launch and template constraints
+- **Features:**
+    - Self-service portal for end users
+    - Version control and rollback capabilities
+    - IAM-based access control
+    - Budget and tag constraints
+    - Integration with ServiceNow and other ITSM tools
+    - Automated provisioning workflows
+- **Use Cases:**
+    - Standardized environment provisioning
+    - Governance and compliance enforcement
+    - Self-service IT for development teams

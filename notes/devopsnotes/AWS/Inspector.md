@@ -1,0 +1,14 @@
+Automated security assessment service that analyses applications for vulnerabilities and deviations from best practices
+- **Types:**
+    - **EC2 Inspector:** Analyzes EC2 instances and container images for software vulnerabilities
+    - **ECR Inspector:** Scans container images in Elastic Container Registry
+- **Features:**
+    - Continuous vulnerability scanning using CVE database
+    - Integration with AWS Security Hub and EventBridge
+    - Risk-based scoring and prioritization
+    - Automated remediation guidance
+    - SBOM (Software Bill of Materials) generation
+- **Use Cases:**
+    - DevSecOps pipeline integration for container security
+    - Compliance reporting and vulnerability management
+    - Continuous security monitoring of EC2 fleets

@@ -1,0 +1,16 @@
+- Visualise, understand, and manage AWS costs and usage over time
+- **Types:**
+    - **Cost Explorer:** Interactive cost analysis interface
+    - **Cost and Usage Reports:** Detailed billing data
+    - **Budgets:** Cost and usage budget alerts
+- **Features:**
+    - Customisable reports and filtering
+    - Forecasting based on historical data
+    - Right-sizing recommendations
+    - Reserved Instance utilisation analysis
+    - Cost allocation tags and dimensions
+    - API access for programmatic analysis
+- **Use Cases:**
+    - Cost optimisation and budget management
+    - Chargeback and showback reporting
+    - Financial planning and forecasting

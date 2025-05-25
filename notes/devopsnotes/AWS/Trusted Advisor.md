@@ -1,0 +1,15 @@
+Provides real-time guidance to help optimise AWS infrastructure following best practices
+- **Types:**
+    - **Basic Support:** Core security and performance checks
+    - **Business/Enterprise Support:** Full feature access with API
+- **Features:**
+    - Cost optimisation recommendations
+    - Performance improvement suggestions
+    - Security vulnerability identification
+    - Fault tolerance analysis
+    - Service quota monitoring
+    - Weekly email reports and programmatic access
+- **Use Cases:**
+    - Cost optimisation and right-sizing
+    - Security posture improvement
+    - Performance optimisation

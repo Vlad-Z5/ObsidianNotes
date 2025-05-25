@@ -1,39 +1,35 @@
+s = serverless (or can be)
 ## Compute
 
 [[EC2]]
-[[Lambda]]
+[[Lambda]]s
 [[ECS]]
 [[EKS]]
 [[ECR]]
 [[Elastic Beanstalk]]
-[[Batch]]
-[[Lightsail]]
-
+[[AWS Batch]]
 ## Storage
 
-[[S3]]
+[[S3]]s
 [[EBS]]
 [[EFS]]
 [[FSx]]
 [[Storage Gateway]]
-[[Backup]]
-[[Glacier]]
-
 ## Networking & Content Delivery
 
 [[VPC]]
 [[Route 53]]
 [[CloudFront]]
-[[API Gateway]]
+[[API Gateway]]s
 [[Direct Connect]]
-[[Global Accelerator]]
-[[Elastic Load Balancing (ELB)]]
-
+[[ELB]]
+[[Transit Gateway]]
+[[VPC Peering]]
 ## Security, Identity, and Compliance
 
 [[IAM]]
-[[Cognito]]
-[[Secrets Manager]]
+[[Cognito]]s
+[[Secrets Manager]]s
 [[KMS]]
 [[Shield]]
 [[WAF]]
@@ -42,37 +38,36 @@
 [[Organizations]]
 [[Control Tower]]
 [[AWS Macie]]
-
 ## Databases
 
 [[RDS]]
-[[Aurora]]
-[[DynamoDB]]
+[[Aurora]]s
+[[DynamoDB]]s
 [[Redshift]]
 [[ElastiCache]]
 [[Neptune]]
-
 ## Management and Governance
 
-[[CloudWatch]]
+[[CloudWatch]]s
 [[CloudTrail]]
 [[Config]]
 [[Trusted Advisor]]
 [[AWS Systems Manager (SSM)]]
 [[AWS Cost Explorer]]
-[[Compute Optimizer]]
+[[Compute Optimiser]]
 [[Service Catalog]]
 
 ## Application Integration 
 
-[[SQS]]
-[[SNS]]
-[[Step Functions]]
-[[EventBridge]]
-[[AppSync]]
+[[SQS]]s
+[[SNS]]s
+[[Step Functions]]s
+[[EventBridge]]s
+[[AppSync]]s
 
 ## Dev Tools
 
+[[AWS Serverless Application Model(SAM)]]
 [[CodeBuild]]
 [[CodeDeploy]]
 [[CodePipeline]]
@@ -80,13 +75,12 @@
 [[CDK]]
 [[Amazon Q]]
 [[X-Ray]]
-
 ## Analytics
 
 [[Athena]]
 [[QuickSight]]
 [[Glue]]
 [[EMR]]
-[[Kinesis]]
 [[Data Pipeline]]
 [[AWS Lake Formation]]
+[[Kinesis]]s

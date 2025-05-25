@@ -1,0 +1,15 @@
+Fully managed NoSQL database service designed for high-performance applications
+- **Types:**
+    - **On-Demand:** Pay per request, automatic scaling
+    - **Provisioned:** Predictable capacity, reserved capacity options
+- **Features:**
+    - Single-digit millisecond latency at any scale
+    - Global Tables for multi-region replication
+    - DynamoDB Streams for change data capture
+    - Transactions across multiple items
+    - PartiQL for SQL-like queries
+    - Point-in-time recovery and on-demand backup
+- **Use Cases:**
+    - High-traffic web applications
+    - Gaming leaderboards and session stores
+    - IoT and real-time applications

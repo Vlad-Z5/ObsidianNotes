@@ -1,0 +1,15 @@
+Cloud-native business intelligence service for data visualization and insights
+- **Types:**
+    - **Standard Edition:** Basic BI functionality
+    - **Enterprise Edition:** Advanced features and ML insights
+- **Features:**
+    - Interactive dashboards and visualizations
+    - ML-powered insights and anomaly detection
+    - Mobile app support and embedding capabilities
+    - Auto-scaling for thousands of users
+    - Row-level security and data source connections
+    - Pay-per-session pricing model
+- **Use Cases:**
+    - Executive dashboards and KPI monitoring
+    - Self-service analytics for business users
+    - Embedded analytics in applications

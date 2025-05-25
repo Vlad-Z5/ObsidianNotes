@@ -1,0 +1,16 @@
+Event bus service for building event-driven applications at scale
+- **Types:**
+    - **Default Event Bus:** AWS service events
+    - **Custom Event Buses:** Application and SaaS events
+    - **Partner Event Buses:** Third-party SaaS integration
+- **Features:**
+    - Event pattern matching and content-based routing
+    - Schema registry for event discovery
+    - Event replay and archive capabilities
+    - Cross-account and cross-region event routing
+    - Integration with 130+ event sources
+    - Dead letter queues and retry policies
+- **Use Cases:**
+    - Microservices communication
+    - SaaS application integration
+    - Real-time data processing pipelines

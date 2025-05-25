@@ -1,0 +1,15 @@
+Software development framework for defining cloud infrastructure using familiar programming languages
+- **Types:**
+    - **CDK v1:** Original version, maintenance mode
+    - **CDK v2:** Current version with unified constructs
+- **Features:**
+    - Support for TypeScript, Python, Java, C#, Go
+    - High-level constructs for common patterns
+    - AWS service integration and best practices
+    - Local testing and synthesis to CloudFormation
+    - Asset management for code and files
+    - Hot swapping for faster development cycles
+- **Use Cases:**
+    - Developer-friendly infrastructure as code
+    - Complex application deployments
+    - Reusable infrastructure components

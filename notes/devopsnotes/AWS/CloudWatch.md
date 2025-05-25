@@ -1,0 +1,17 @@
+Monitoring and observability service for AWS resources and applications
+- **Types:**
+    - **Metrics:** Numerical data points over time
+    - **Logs:** Log file monitoring and analysis
+    - **Events/EventBridge:** Rule-based event processing
+    - **Alarms:** Threshold-based notifications
+- **Features:**
+    - Custom metrics and dashboards
+    - Log aggregation and search
+    - Application Insights for .NET and SQL Server
+    - Container Insights for ECS and EKS
+    - Synthetics for endpoint monitoring
+    - Composite alarms and anomaly detection
+- **Use Cases:**
+    - Infrastructure monitoring and alerting
+    - Application performance monitoring
+    - Log analysis and troubleshooting
