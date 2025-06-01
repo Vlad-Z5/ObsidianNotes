@@ -31,21 +31,21 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 # Complete security runtime options
 docker run -d \
   --name secure-app \
-  --user 10001:10001 \                              # Non-root user
-  --read-only \                                     # Read-only root filesystem
-  --tmpfs /tmp:rw,noexec,nosuid \                  # Writable temp with restrictions
+  --user 10001:10001 \ # Non-root user
+  --read-only \ # Read-only root filesystem
+  --tmpfs /tmp:rw,noexec,nosuid \ # Writable temp with restrictions
   --tmpfs /var/run:rw,noexec,nosuid \
-  --security-opt=no-new-privileges \                # Prevent privilege escalation
-  --cap-drop=ALL \                                  # Drop all capabilities
-  --cap-add=NET_BIND_SERVICE \                      # Add only needed capabilities
-  --security-opt apparmor:docker-default \          # AppArmor profile
-  --security-opt seccomp:default.json \             # Seccomp profile
-  --pids-limit 100 \                               # Limit process count
-  --memory=256m --memory-swap=256m \               # Memory limits
-  --cpus="0.5" \                                   # CPU limits
-  --ulimit nofile=1024:2048 \                     # File descriptor limits
-  --ulimit nproc=50:100 \                         # Process limits
-  --restart=on-failure:5 \                        # Restart policy
+  --security-opt=no-new-privileges \ # Prevent privilege escalation
+  --cap-drop=ALL \ # Drop all capabilities
+  --cap-add=NET_BIND_SERVICE \ # Add only needed capabilities
+  --security-opt apparmor:docker-default \ # AppArmor profile
+  --security-opt seccomp:default.json \ # Seccomp profile
+  --pids-limit 100 \ # Limit process count
+  --memory=256m --memory-swap=256m \ # Memory limits
+  --cpus="0.5" \ # CPU limits
+  --ulimit nofile=1024:2048 \ # File descriptor limits
+  --ulimit nproc=50:100 \ # Process limits
+  --restart=on-failure:5 \ # Restart policy
   --health-cmd="curl -f http://localhost:8080/health" \
   --health-interval=30s \
   --health-timeout=3s \

@@ -1,0 +1,17 @@
+Monitoring and observability service for AWS resources and applications
+- **Types:**
+    - **Metrics:** Numerical data points over time (CPU, RAM,, Disk space, Netstat, Processes, Swap)
+    - **Logs:** Log file monitoring and analysis, can be sent to s3, kinesis streams, firehose, lambda; can be sent by: SDK, CloudWatch Agents, Beanstalk, ECS, Lambda, VPC Flow Logs, API Gateway, CloudTrail, Route53
+    - **Events/EventBridge:** Rule-based event processing
+    - **Alarms:** Threshold-based notifications. Statuses: OK,  INSUFFICIENT_DATA, ALARM
+- **Features:**
+    - Custom metrics and dashboards
+    - Log aggregation and search; Log insights to search/analyze/query multiple log groups
+    - Application Insights for .NET and SQL Server
+    - Container Insights for ECS and EKS
+    - Synthetics for endpoint monitoring
+    - Composite alarms and anomaly detection
+- **Use Cases:**
+    - Infrastructure monitoring and alerting
+    - Application performance monitoring
+    - Log analysis and troubleshooting

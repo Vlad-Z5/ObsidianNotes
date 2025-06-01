@@ -1,0 +1,50 @@
+- **Shebang**: `#!/bin/bash` defines the script's interpreter, can be #!/bin/zsh, #!/usr/bin/env sh among many more. Use `which bash` to get yours. #!/bin/sh is implicit so better avoid it.
+- **Script Components**
+    - **Variables**: name=value (no spaces)
+        - ${name}: access variable explicitly, without curly braces - implicitly
+    - **Quotes**
+        - "": expands variables
+        - '': literal string
+        - \`\`: (backticks) or $(): command substitution
+    - **Conditionals**
+        - if [ condition ]; then ...; fi
+        - test or [ ] for comparisons
+            - `-z`: string is empty; `-n`: string is not empty
+            - `-f`: file exists; `-d`: directory exists
+            - `-eq`, `-ne`, `-gt`, `-lt`, `-ge`, `-le`: integer comparisons
+    - **Loops**
+        - for var in list; do ...; done
+        - while [ condition ]; do ...; done
+        - until [ condition ]; do ...; done
+    - **Functions**
+        - name() { commands; }
+    - **Special Variables**
+        - `$0`: script name
+        - `$1` to `$9`: positional args
+        - `$#`: number of args
+        - `$@`: all args
+        - `$?`: exit status of last command
+        - `$$`: PID of script
+    - **Operators**
+        - `&&`: run next only if previous succeeds
+        - `||`: run next only if previous fails
+        - `;`: run sequentially
+        - `&`: run in background
+    - **Input/Output**
+        - `stdin` (0): standard input, usually from keyboard
+        - `stdout` (1): standard output, usually to screen
+        - `stderr` (2): standard error output
+        - `>`: redirect stdout (overwrite)
+        - `>>`: redirect stdout (append)
+        - `&>`: redirect both stdout and stderr
+        - > &2: write to stderr
+        - `<`: redirect stdin from a file
+        - `command > /dev/null`: discard stdout
+        - `command 2> /dev/null`: discard stderr
+        - read var: read input into `var`
+        - echo: print to stdout
+        - `|`: send stdout to the next command
+        - We use heredoc with redirects often and it consists of the phrase and esarhp (phrase in reverse), everything in between will be treated as a single whole
+    - **Exit**
+        - `exit N`: exit with status N
+        - `trap`: catch signals (e.g., `trap "echo Exiting" EXIT`)

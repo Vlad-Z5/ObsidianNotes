@@ -2,7 +2,7 @@
 
 - [[Networking]]
 - [[Linux]]
-- [[notes/devopsnotes/Docker]]
+- [[Docker]]
 - [[AWS]]
 - [[Kubernetes]]
 - [[Python]]

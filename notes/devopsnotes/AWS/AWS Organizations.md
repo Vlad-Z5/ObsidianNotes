@@ -1,0 +1,16 @@
+Centrally manage and govern multiple AWS accounts across your organisation
+- **Types:**
+    - **All Features:** Full management capabilities including SCPs
+    - **Consolidated Billing:** Basic billing aggregation only
+    - **Savings Plans** share resources across organization to utilize plan benefits
+- **Features:**
+    - Service Control Policies (SCPs) for permission boundaries
+    - Organisational Units (OUs) for hierarchical account grouping
+    - Consolidated billing and cost allocation
+    - Account creation and invitation automation
+    - Cross-account role assumption
+    - AWS Config and CloudTrail organisation-wide deployment
+- **Use Cases:**
+    - Multi-account governance and security boundaries
+    - Cost management across enterprise environments
+    - Compliance enforcement through SCPs

@@ -1,0 +1,20 @@
+Records API calls and user activity across AWS infrastructure for auditing and compliance
+- **Types:**
+    - **Event** 90-day free event history (Store in S3 for longer timeframes) can be separated for Read and Write
+	    - Management events 
+	    - Data events has to be enabled
+	    - Insights event to detect unusual activity
+    - **Trails:** Custom logging configuration to S3
+    - **Insights:** ML-powered unusual activity detection
+- **Features:**
+    - Management and data event logging
+    - Multi-region and multi-account trails
+    - Log file integrity validation
+    - Integration with CloudWatch Logs
+    - Event filtering and search capabilities
+    - Real-time event processing with CloudWatch Events
+- **Use Cases:**
+    - Security analysis and compliance auditing
+    - Troubleshooting operational issues
+    - Forensic analysis after security incidents
+    - Send events to EventBridge to trigger SNS to get notified

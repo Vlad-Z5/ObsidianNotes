@@ -1,86 +1,96 @@
 s = serverless (or can be)
+
+# Main services
 ## Compute
 
-[[EC2]]
-[[Lambda]]s
-[[ECS]]
-[[EKS]]
-[[ECR]]
-[[Elastic Beanstalk]]
-[[AWS Batch]]
+[[AWS EC2]]  
+[[AWS Lambda]]s  
+[[AWS ECS]]  
+[[AWS EKS]]  
+[[AWS ECR]]  
+[[AWS Elastic Beanstalk]]  
+[[AWS Batch]]s
+
 ## Storage
 
-[[S3]]s
-[[EBS]]
-[[EFS]]
-[[FSx]]
-[[Storage Gateway]]
+[[AWS S3]]s  
+[[AWS EBS]]  
+[[AWS EFS]]  
+[[AWS FSx]]  
+[[AWS Storage Gateway]]
+
 ## Networking & Content Delivery
 
-[[VPC]]
-[[Route 53]]
-[[CloudFront]]
-[[API Gateway]]s
-[[Direct Connect]]
-[[ELB]]
-[[Transit Gateway]]
-[[VPC Peering]]
+[[AWS VPC]]
+[[AWS Network ACL]]
+[[AWS Route 53]]
+[[AWS CloudFront]]s
+[[AWS API Gateway]]s  
+[[AWS Direct Connect]]  
+[[AWS ELB]]  
+[[AWS Transit Gateway]]  
+[[AWS VPC Peering]]
+[[AWS NAT Gateway]]
+
 ## Security, Identity, and Compliance
 
-[[IAM]]
-[[Cognito]]s
-[[Secrets Manager]]s
-[[KMS]]
-[[Shield]]
-[[WAF]]
-[[GuardDuty]]
-[[Inspector]]
-[[Organizations]]
-[[Control Tower]]
-[[AWS Macie]]
+[[AWS IAM]]  
+[[AWS Cognito]]s  
+[[AWS Secrets Manager]]s  
+[[AWS KMS]]s  
+[[AWS Shield]]s  
+[[AWS WAF]]s  
+[[AWS GuardDuty]]s  
+[[AWS Inspector]]s  
+[[AWS Organizations]]  
+[[AWS Control Tower]]s  
+[[AWS Macie]]s
+
 ## Databases
 
-[[RDS]]
-[[Aurora]]s
-[[DynamoDB]]s
-[[Redshift]]
-[[ElastiCache]]
-[[Neptune]]
+[[AWS RDS]]  
+[[AWS Aurora]]s  
+[[AWS DynamoDB]]s  
+[[AWS Redshift]]  
+[[AWS ElastiCache]]  
+[[AWS Neptune]]
+
 ## Management and Governance
 
-[[CloudWatch]]s
-[[CloudTrail]]
-[[Config]]
-[[Trusted Advisor]]
-[[AWS Systems Manager (SSM)]]
-[[AWS Cost Explorer]]
-[[Compute Optimiser]]
-[[Service Catalog]]
+[[AWS CloudWatch]]s  
+[[AWS CloudTrail]]s  
+[[AWS Config]]s  
+[[AWS Trusted Advisor]]s  
+[[AWS Systems Manager (SSM)]]s  
+[[AWS Cost Explorer]]s  
+[[AWS Compute Optimiser]]s  
+[[AWS Service Catalog]]s
 
-## Application Integration 
+## Application Integration
 
-[[SQS]]s
-[[SNS]]s
-[[Step Functions]]s
-[[EventBridge]]s
-[[AppSync]]s
+[[AWS SQS]]s  
+[[AWS SNS]]s  
+[[AWS Step Functions]]s  
+[[AWS EventBridge]]s  
+[[AWS AppSync]]s
 
 ## Dev Tools
 
-[[AWS Serverless Application Model(SAM)]]
-[[CodeBuild]]
-[[CodeDeploy]]
-[[CodePipeline]]
-[[CloudFormation]]
-[[CDK]]
-[[Amazon Q]]
-[[X-Ray]]
+[[AWS Serverless Application Model (SAM)]]s  
+[[AWS CodeBuild]]s  
+[[AWS CodeDeploy]]  
+[[AWS CodePipeline]]s  
+[[AWS CloudFormation]]s  
+[[AWS CDK]]s  
+[[Amazon Q]]s  
+[[AWS X-Ray]]s
+
 ## Analytics
 
-[[Athena]]
-[[QuickSight]]
-[[Glue]]
-[[EMR]]
-[[Data Pipeline]]
-[[AWS Lake Formation]]
-[[Kinesis]]s
+[[AWS Athena]]s  
+[[AWS QuickSight]]s  
+[[AWS Glue]]s  
+[[AWS EMR]]  
+[[AWS Data Pipeline]]  
+[[AWS Lake Formation]]s  
+[[AWS Kinesis]]s

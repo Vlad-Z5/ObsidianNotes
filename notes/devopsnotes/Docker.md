@@ -2,7 +2,7 @@
 
 ## [[Docker Architecture & Internals]]
 ## [[Docker Image Layers & Caching Deep Dive]]
-## [[Multi-Stage Build in Docker]]
+## [[Docker Multi-Stage Build]]
 
 ## [[Docker Commands]]
 
@@ -10,7 +10,7 @@
 
 ## [[Docker Networking]]
 
-## [[Storage & Volumes Internals]]
+## [[Docker Storage & Volumes Internals]]
 
 ## [[Docker Compose Production Setup]]
 

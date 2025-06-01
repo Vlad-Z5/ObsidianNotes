@@ -3,31 +3,31 @@
 ```bash
 # CPU management
 docker run -d \
-  --cpus="1.5" \                    # CPU limit (1.5 cores)
-  --cpu-shares=512 \                # Relative weight (default 1024)
-  --cpu-period=100000 \             # CPU period (microseconds)
-  --cpu-quota=50000 \               # CPU quota (50% of period)
-  --cpuset-cpus="0,1" \             # Pin to specific CPUs
-  --cpu-rt-runtime=950000 \         # Real-time scheduling
+  --cpus="1.5" \ # CPU limit (1.5 cores)
+  --cpu-shares=512 \ # Relative weight (default 1024)
+  --cpu-period=100000 \ # CPU period (microseconds)
+  --cpu-quota=50000 \ # CPU quota (50% of period)
+  --cpuset-cpus="0,1" \ # Pin to specific CPUs
+  --cpu-rt-runtime=950000 \ # Real-time scheduling
   nginx
 
 # Memory management with detailed options
 docker run -d \
-  --memory=512m \                   # Memory limit
-  --memory-swap=1g \                # Total memory (RAM + swap)
-  --memory-swappiness=60 \          # Swap tendency (0-100)
-  --memory-reservation=256m \       # Soft limit
-  --oom-kill-disable \              # Disable OOM killer
-  --oom-score-adj=-500 \            # OOM score adjustment
+  --memory=512m \ # Memory limit
+  --memory-swap=1g \ # Total memory (RAM + swap)
+  --memory-swappiness=60 \ # Swap tendency (0-100)
+  --memory-reservation=256m \ # Soft limit
+  --oom-kill-disable \ # Disable OOM killer
+  --oom-score-adj=-500 \ # OOM score adjustment
   nginx
 
 # I/O management
 docker run -d \
-  --device-read-bps /dev/sda:1mb \  # Read bandwidth limit
+  --device-read-bps /dev/sda:1mb \ # Read bandwidth limit
   --device-write-bps /dev/sda:1mb \ # Write bandwidth limit
   --device-read-iops /dev/sda:100 \ # Read IOPS limit
-  --device-write-iops /dev/sda:100 \# Write IOPS limit
-  --blkio-weight=500 \              # Block I/O weight
+  --device-write-iops /dev/sda:100 \ # Write IOPS limit
+  --blkio-weight=500 \ # Block I/O weight
   nginx
 ```
 
@@ -79,11 +79,11 @@ docker run -d \
 ```bash
 # Container performance tuning
 docker run -d \
-  --shm-size=256m \                 # Shared memory size
-  --ulimit memlock=-1:-1 \          # Memory lock limit
-  --ulimit stack=67108864 \         # Stack size
-  --sysctl net.core.somaxconn=65535 \  # Network tuning
-  --sysctl vm.max_map_count=262144 \   # Virtual memory tuning
+  --shm-size=256m \ # Shared memory size
+  --ulimit memlock=-1:-1 \ # Memory lock limit
+  --ulimit stack=67108864 \ # Stack size
+  --sysctl net.core.somaxconn=65535 \ # Network tuning
+  --sysctl vm.max_map_count=262144 \ # Virtual memory tuning
   nginx
 
 # Docker daemon tuning (/etc/docker/daemon.json)

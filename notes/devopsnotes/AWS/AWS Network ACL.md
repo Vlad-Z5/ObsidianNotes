@@ -1,0 +1,9 @@
+- **Purpose:** Optional stateless firewall for controlling traffic in and out of subnets  
+- Deny everything by default
+- **Stateless:** Responses must be explicitly allowed by rules  
+- **Applies To:** Subnets (not individual instances)  
+- **Rule Evaluation:** Numbered rules evaluated in order; lowest number first (1-32766)
+- **Default NACL:** Allows all inbound and outbound traffic 
+- **Custom NACL:** Deny all by default unless specified  
+- **Supports:** Allow and deny rules (unlike Security Groups which only allow)  
+- **Use Case:** Fine-grained subnet-level control, blacklist IPs, etc.

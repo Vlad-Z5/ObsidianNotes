@@ -1,4 +1,3 @@
-
 - `/`: Root of the filesystem
     - `/bin`: Essential user binaries (e.g., `ls`, `cp`)
     - `/boot`: Boot loader files (e.g., `vmlinuz`, `grub/`)

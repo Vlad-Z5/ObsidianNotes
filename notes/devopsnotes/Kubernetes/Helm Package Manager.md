@@ -1,3 +1,9 @@
+Helm is a package manager for K8, just like apt is for Debian, that uses Chart Repositories to install needed resources for the cluster; Helm has version control and configuration management through values. Helm uses {{ .Values.value }} templating for values, charts, releases, etc.
+## Components
+- **Chart.yaml:** Metadata about the chart (name, version, etc.)
+- **values.yaml:** Default configuration values
+- **templates/**: Directory containing Kubernetes manifests as templates
+- **charts/**: Directory for chart dependencies
 ### Basic Helm Commands
 
 ```bash
@@ -27,6 +33,21 @@ helm rollback my-release 1
 
 # Uninstall release
 helm uninstall my-release
+
+# Create a chart
+helm create app
+
+# List customizable values
+helm show values bitnami/nginx
+
+# Preview manifest
+helm template my-nginx bitnami/nginx
+
+# Upgrade release
+helm upgrade my-nginx bitnami/nginx --set service.type=NodePort
+
+# Check upgrade status
+helm status my-nginx
 ```
 
 ### Chart Structure

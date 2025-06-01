@@ -1,4 +1,4 @@
-Fully managed batch processing service that efficiently runs batch computing workloads
+Fully managed batch processing service that efficiently runs batch computing workloads. Jobs are Docker images that run on ECS, we can utilize Spot instances for cost reduction, has no limitations apart from storage and EC2 to run on
 
 - **Job Definitions:** Specify how jobs are to be run (container image, vCPU, memory)
 - **Job Queues:** Hold submitted jobs until compute resources are available
