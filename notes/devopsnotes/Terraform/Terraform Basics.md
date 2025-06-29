@@ -1,7 +1,4 @@
-### What is Terraform?
-
-Open-source Infrastructure as Code (IaC) tool by HashiCorp that enables you to define and provision infrastructure using declarative configuration files.
-
+Open-source Infrastructure as Code (IaC) tool by HashiCorp that enables you to define and provision infrastructure using declarative configuration files. Supports multi-cloud, has a large ecosystem with wide support, uses declarative syntax
 ### Key Benefits
 
 - **Infrastructure as Code**: Version control your infrastructure

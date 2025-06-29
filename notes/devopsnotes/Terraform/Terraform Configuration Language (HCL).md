@@ -43,10 +43,16 @@ output "instance_ip" {
 - **`resource`** - Defines infrastructure objects
 - **`data`** - Fetches information from providers
 - **`variable`** - Input variables
+	- `description` to provide more info about the variable
+	- `type` to specify data type
+	- `default` to set default
 - **`output`** - Return values
+	- has `description` and `values` as fields
 - **`locals`** - Local values for reuse
 - **`module`** - Calls to child modules
 - **`provider`** - Provider configurations
+	- `aws, google, azurerm, kubernetes, ...`
+	- Most commonly configured at root, can be configured in child module to reuse it for multiple resources, can be configured in the required_providers to specify a version to be used
 - **`terraform`** - Terraform settings
 
 ### Data Types
