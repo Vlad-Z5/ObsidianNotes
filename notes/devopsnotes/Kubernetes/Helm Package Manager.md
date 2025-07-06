@@ -28,26 +28,19 @@ helm list --all-namespaces
 helm upgrade my-release stable/nginx
 helm upgrade my-release stable/nginx --set service.type=LoadBalancer
 
-# Rollback release
-helm rollback my-release 1
+helm rollback my-release 1 # Rollback release to revision 1
 
-# Uninstall release
-helm uninstall my-release
+helm uninstall my-release # Uninstall release and delete all associated resources
 
-# Create a chart
-helm create app
+helm create app # Create a new chart scaffold
 
-# List customizable values
-helm show values bitnami/nginx
+helm show values bitnami/nginx # List all configurable values in the chart
 
-# Preview manifest
-helm template my-nginx bitnami/nginx
+helm template my-nginx bitnami/nginx # Render Kubernetes manifest without installing
 
-# Upgrade release
-helm upgrade my-nginx bitnami/nginx --set service.type=NodePort
+helm upgrade my-nginx bitnami/nginx --set service.type=NodePort # Upgrade release with new values
 
-# Check upgrade status
-helm status my-nginx
+helm status my-nginx # Check the status of a release
 ```
 
 ### Chart Structure

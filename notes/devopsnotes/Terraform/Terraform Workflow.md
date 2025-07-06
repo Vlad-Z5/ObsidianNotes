@@ -3,114 +3,54 @@
 ### Initialize (`terraform init`)
 
 ```bash
-# Basic initialization
-terraform init
-
-# Initialize with backend configuration
-terraform init -backend-config="bucket=my-terraform-state"
-
-# Initialize without backend
-terraform init -backend=false
-
-# Upgrade providers
-terraform init -upgrade
-
-# Initialize specific directory
-terraform init /path/to/terraform/config
-
-# Initialize with plugin directory
-terraform init -plugin-dir=/path/to/plugins
-
-# Skip plugin installation
-terraform init -get-plugins=false
-
-# Reconfigure backend
-terraform init -reconfigure
-
-# Migrate state to new backend
-terraform init -migrate-state
+terraform init # Basic initialization
+terraform init -backend-config="bucket=my-terraform-state" # Initialize with backend configuration
+terraform init -backend=false # Initialize without backend
+terraform init -upgrade # Upgrade providers
+terraform init /path/to/terraform/config # Initialize specific directory
+terraform init -plugin-dir=/path/to/plugins # Initialize with plugin directory
+terraform init -get-plugins=false # Skip plugin installation
+terraform init -reconfigure # Reconfigure backend
+terraform init -migrate-state # Migrate state to new backend
 ```
 
 ### Plan (`terraform plan`)
 
 ```bash
-# Basic plan
-terraform plan
-
-# Save plan to file
-terraform plan -out=tfplan
-
-# Plan with specific variables
-terraform plan -var="environment=production"
-
-# Plan with variable file
-terraform plan -var-file="production.tfvars"
-
-# Plan with target resources
-terraform plan -target=aws_instance.web
-
-# Plan for destroy
-terraform plan -destroy
-
-# Detailed exit codes
-terraform plan -detailed-exitcode
-
-# Refresh state during plan
-terraform plan -refresh=true
-
-# Parallelism control
-terraform plan -parallelism=10
-
-# JSON output
-terraform plan -json
+terraform plan # Basic plan
+terraform plan -out=tfplan # Save plan to file
+terraform plan -var="environment=production" # Plan with specific variables
+terraform plan -var-file="production.tfvars" # Plan with variable file
+terraform plan -target=aws_instance.web # Plan with target resources
+terraform plan -destroy # Plan for destroy
+terraform plan -detailed-exitcode # Detailed exit codes
+terraform plan -refresh=true # Refresh state during plan
+terraform plan -parallelism=10 # Parallelism control
+terraform plan -json # JSON output
 ```
 
 ### Apply (`terraform apply`)
 
 ```bash
-# Interactive apply
-terraform apply
-
-# Apply saved plan
-terraform apply tfplan
-
-# Auto-approve (non-interactive)
-terraform apply -auto-approve
-
-# Apply with variables
-terraform apply -var="instance_count=3"
-
-# Apply specific targets
-terraform apply -target=aws_instance.web
-
-# Apply with parallelism
-terraform apply -parallelism=5
-
-# Apply with backup
-terraform apply -backup=terraform.tfstate.backup
-
-# Apply without state backup
-terraform apply -backup="-"
+terraform apply # Interactive apply
+terraform apply tfplan # Apply saved plan
+terraform apply -auto-approve # Auto-approve (non-interactive)
+terraform apply -var="instance_count=3" # Apply with variables
+terraform apply -target=aws_instance.web # Apply specific targets
+terraform apply -parallelism=5 # Apply with parallelism
+terraform apply -backup=terraform.tfstate.backup # Apply with backup
+terraform apply -backup="-" # Apply without state backup
 ```
 
 ### Destroy (`terraform destroy`)
 
 ```bash
-# Interactive destroy
-terraform destroy
-
-# Auto-approve destroy
-terraform destroy -auto-approve
-
-# Destroy specific resources
-terraform destroy -target=aws_instance.web
-
-# Destroy with variables
-terraform destroy -var-file="production.tfvars"
-
-# Plan destroy first
-terraform plan -destroy -out=destroy.tfplan
-terraform apply destroy.tfplan
+terraform destroy # Interactive destroy
+terraform destroy -auto-approve # Auto-approve destroy
+terraform destroy -target=aws_instance.web # Destroy specific resources
+terraform destroy -var-file="production.tfvars" # Destroy with variables
+terraform plan -destroy -out=destroy.tfplan # Plan destroy first
+terraform apply destroy.tfplan # Apply destroy plan
 ```
 
 ## State Management Commands
@@ -118,55 +58,30 @@ terraform apply destroy.tfplan
 ### State Inspection
 
 ```bash
-# List resources in state
-terraform state list
-
-# Show resource details
-terraform state show aws_instance.web
-
-# Show all state
-terraform show
-
-# Show state in JSON
-terraform show -json
-
-# Pull remote state
-terraform state pull
-
-# Push state to remote
-terraform state push terraform.tfstate
+terraform state list # List resources in state
+terraform state show aws_instance.web # Show resource details
+terraform show # Show all state
+terraform show -json # Show state in JSON
+terraform state pull # Pull remote state
+terraform state push terraform.tfstate # Push state to remote
 ```
 
 ### State Manipulation
 
 ```bash
-# Move resource in state
-terraform state mv aws_instance.web aws_instance.web_server
-
-# Remove resource from state
-terraform state rm aws_instance.old_server
-
-# Import existing resource
-terraform import aws_instance.web i-1234567890abcdef0
-
-# Replace provider address
-terraform state replace-provider registry.terraform.io/hashicorp/aws hashicorp/aws
-
-# Force unlock state
-terraform force-unlock LOCK_ID
+terraform state mv aws_instance.web aws_instance.web_server # Move resource in state
+terraform state rm aws_instance.old_server # Remove resource from state
+terraform import aws_instance.web i-1234567890abcdef0 # Import existing resource
+terraform state replace-provider registry.terraform.io/hashicorp/aws hashicorp/aws # Replace provider address
+terraform force-unlock LOCK_ID # Force unlock state
 ```
 
 ### Refresh and Sync
 
 ```bash
-# Refresh state
-terraform refresh
-
-# Refresh with variables
-terraform refresh -var-file="production.tfvars"
-
-# Refresh specific targets
-terraform refresh -target=aws_instance.web
+terraform refresh # Refresh state
+terraform refresh -var-file="production.tfvars" # Refresh with variables
+terraform refresh -target=aws_instance.web # Refresh specific targets
 ```
 
 ## Validation and Formatting
@@ -174,36 +89,20 @@ terraform refresh -target=aws_instance.web
 ### Validation
 
 ```bash
-# Validate configuration
-terraform validate
-
-# Validate with JSON output
-terraform validate -json
-
-# Validate specific directory
-terraform validate /path/to/config
+terraform validate # Validate configuration
+terraform validate -json # Validate with JSON output
+terraform validate /path/to/config # Validate specific directory
 ```
 
 ### Formatting
 
 ```bash
-# Format all files
-terraform fmt
-
-# Format specific file
-terraform fmt main.tf
-
-# Recursive format
-terraform fmt -recursive
-
-# Check formatting (exit code)
-terraform fmt -check
-
-# Show differences
-terraform fmt -diff
-
-# Write to stdout
-terraform fmt -write=false
+terraform fmt # Format all files
+terraform fmt main.tf # Format specific file
+terraform fmt -recursive # Recursive format
+terraform fmt -check # Check formatting (exit code)
+terraform fmt -diff # Show differences
+terraform fmt -write=false # Write to stdout
 ```
 
 ## Advanced Workflow Patterns
@@ -232,54 +131,35 @@ terraform apply prod.tfplan
 
 ```bash
 #!/bin/bash
-# Terraform CI/CD script
-
 set -e
 
-# Initialize
-terraform init -input=false
+terraform init -input=false # Initialize
+terraform validate # Validate
+terraform fmt -check=true -diff=true # Format check
+terraform plan -input=false -var-file="${ENVIRONMENT}.tfvars" -out=tfplan # Plan
 
-# Validate
-terraform validate
-
-# Format check
-terraform fmt -check=true -diff=true
-
-# Plan
-terraform plan -input=false -var-file="${ENVIRONMENT}.tfvars" -out=tfplan
-
-# Apply (if approved)
 if [ "$TERRAFORM_ACTION" = "apply" ]; then
-    terraform apply -input=false tfplan
+    terraform apply -input=false tfplan # Apply (if approved)
 fi
 
-# Output important values
-terraform output -json > terraform-outputs.json
+terraform output -json > terraform-outputs.json # Output important values
 ```
 
 ### Blue-Green Deployment Workflow
 
 ```bash
-# Create new infrastructure
-terraform workspace new blue
+terraform workspace new blue # Create new infrastructure
 terraform apply -var="version=v2.0" -var="environment=blue"
-
 # Test new infrastructure
-# ... testing scripts ...
-
-# Switch traffic
-terraform apply -var="active_environment=blue"
-
-# Destroy old infrastructure
+terraform apply -var="active_environment=blue" # Switch traffic
 terraform workspace select green
-terraform destroy -auto-approve
+terraform destroy -auto-approve # Destroy old infrastructure
 ```
 
 ### Disaster Recovery Workflow
 
 ```bash
-# Backup current state
-terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate
+terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate # Backup current state
 
 # Create disaster recovery plan
 terraform plan -destroy -out=dr-destroy.tfplan
@@ -296,20 +176,11 @@ terraform apply dr-create.tfplan
 ### Workspace Operations
 
 ```bash
-# List workspaces
-terraform workspace list
-
-# Create new workspace
-terraform workspace new production
-
-# Select workspace
-terraform workspace select development
-
-# Show current workspace
-terraform workspace show
-
-# Delete workspace
-terraform workspace delete old-environment
+terraform workspace list # List workspaces
+terraform workspace new production # Create new workspace
+terraform workspace select development # Select workspace
+terraform workspace show # Show current workspace
+terraform workspace delete old-environment # Delete workspace
 ```
 
 ### Workspace-Aware Configuration
@@ -355,36 +226,20 @@ resource "aws_instance" "web" {
 ### Output Commands
 
 ```bash
-# Show all outputs
-terraform output
-
-# Show specific output
-terraform output vpc_id
-
-# Output in JSON format
-terraform output -json
-
-# Raw output (no quotes)
-terraform output -raw private_key
-
-# Save outputs to file
-terraform output -json > outputs.json
+terraform output # Show all outputs
+terraform output vpc_id # Show specific output
+terraform output -json # Output in JSON format
+terraform output -raw private_key # Raw output (no quotes)
+terraform output -json > outputs.json # Save outputs to file
 ```
 
 ### Graph Generation
 
 ```bash
-# Generate dependency graph
-terraform graph
-
-# Generate graph in DOT format
-terraform graph | dot -Tpng > graph.png
-
-# Generate plan graph
-terraform graph -plan=tfplan
-
-# Generate graph for specific module
-terraform graph -module=vpc
+terraform graph # Generate dependency graph
+terraform graph | dot -Tpng > graph.png # Generate graph in DOT format
+terraform graph -plan=tfplan # Generate plan graph
+terraform graph -module=vpc # Generate graph for specific module
 ```
 
 ## Debugging and Troubleshooting
@@ -425,8 +280,7 @@ terraform plan
 ### Console and REPL
 
 ```bash
-# Interactive console
-terraform console
+terraform console # Interactive console
 
 # Test expressions in console
 > var.environment
@@ -578,30 +432,18 @@ jobs:
 ### Parallelism and Performance
 
 ```bash
-# Control parallelism
-terraform apply -parallelism=20
-
-# Refresh only specific resources
-terraform refresh -target=aws_instance.web
-
-# Skip refresh during plan
-terraform plan -refresh=false
-
-# Use -compact-warnings
-terraform plan -compact-warnings
+terraform apply -parallelism=20 # Control parallelism
+terraform refresh -target=aws_instance.web # Refresh only specific resources
+terraform plan -refresh=false # Skip refresh during plan
+terraform plan -compact-warnings # Use -compact-warnings
 ```
 
 ### State Optimization
 
 ```bash
-# Clean up state
-terraform state list | grep 'module.old_module' | xargs terraform state rm
-
-# Optimize state file
-terraform state pull | terraform state push
-
-# Use partial backend configuration
-terraform init -backend-config=backend.hcl
+terraform state list | grep 'module.old_module' | xargs terraform state rm # Clean up state
+terraform state pull | terraform state push # Optimize state file
+terraform init -backend-config=backend.hcl # Use partial backend configuration
 ```
 
 ### Resource Targeting

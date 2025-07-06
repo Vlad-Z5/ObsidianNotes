@@ -30,8 +30,7 @@ kubectl logs pod-name -c container-name
 kubectl exec -it pod-name -- bash
 kubectl exec pod-name -- ls /app
 
-# Port forwarding
-kubectl port-forward pod-name 8080:80
+kubectl port-forward pod-name 8080:80 # Port forwarding
 
 # Delete pods
 kubectl delete pod pod-name
@@ -60,8 +59,7 @@ kubectl rollout history deployment/nginx
 kubectl rollout undo deployment/nginx
 kubectl rollout undo deployment/nginx --to-revision=2
 
-# Delete deployment
-kubectl delete deployment deployment-name
+kubectl delete deployment deployment-name # Delete deployment
 ```
 
 ### Service Management
@@ -76,8 +74,7 @@ kubectl get services
 kubectl get svc
 kubectl describe service service-name
 
-# Test service connectivity
-kubectl run test-pod --image=busybox -it --rm -- wget -qO- service-name
+kubectl run test-pod --image=busybox -it --rm -- wget -qO- service-name # Test service connectivity
 ```
 
 ### Configuration Management

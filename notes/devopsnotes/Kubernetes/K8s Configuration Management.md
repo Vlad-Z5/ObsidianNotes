@@ -52,7 +52,7 @@ metadata:
   name: app-secret
 type: Opaque
 data:
-  username: YWRtaW4=        # base64 encoded
+  username: YWRtaW4= # base64 encoded
   password: MWYyZDFlMmU2N2Rm # base64 encoded
 ```
 

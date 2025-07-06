@@ -25,39 +25,34 @@ cat /proc/$(pgrep prometheus)/status | grep -E "VmRSS|VmSize"
 ### Debugging Queries
 
 ```bash
-# Query performance
-curl 'http://localhost:9090/api/v1/query?query=up&debug=true'
+curl 'http://localhost:9090/api/v1/query?query=up&debug=true' # Query performance with debug info
 
-# Explain query
-promtool query explain 'rate(http_requests_total[5m])'
+promtool query explain 'rate(http_requests_total[5m])' # Explain query execution plan
 
-# Series cardinality
-curl 'http://localhost:9090/api/v1/label/__name__/values' | jq '. | length'
+curl 'http://localhost:9090/api/v1/label/__name__/values' | jq '. | length' # Get series cardinality
+
 ```
 
 ### Log Analysis
 
 ```bash
-# Common log locations
-tail -f /var/log/prometheus/prometheus.log
-journalctl -u prometheus --since "1 hour ago"
+tail -f /var/log/prometheus/prometheus.log # Follow Prometheus main log
+journalctl -u prometheus --since "1 hour ago" # Recent logs from systemd journal
 
-# Query log analysis
-grep "query=" /var/log/prometheus/query.log | awk -F'query=' '{print $2}' | sort | uniq -c | sort -nr
+grep "query=" /var/log/prometheus/query.log | awk -F'query=' '{print $2}' | sort | uniq -c | sort -nr # Query log frequency
 
-# Error patterns
-grep -E "(error|ERROR|failed|FAILED)" /var/log/prometheus/prometheus.log
+grep -E "(error|ERROR|failed|FAILED)" /var/log/prometheus/prometheus.log # Search for errors in logs
 ```
 
 ### Performance Monitoring
 
 ```promql
 # Prometheus self-monitoring queries
-prometheus_config_last_reload_successful
-prometheus_tsdb_reloads_total
-prometheus_rule_evaluation_duration_seconds
-prometheus_query_duration_seconds
-prometheus_engine_query_duration_seconds_sum
-prometheus_notifications_total
-prometheus_remote_storage_samples_total
+prometheus_config_last_reload_successful # Last config reload status
+prometheus_tsdb_reloads_total # Total TSDB reloads
+prometheus_rule_evaluation_duration_seconds # Rule evaluation duration
+prometheus_query_duration_seconds # Query duration
+prometheus_engine_query_duration_seconds_sum # Engine query duration sum
+prometheus_notifications_total # Notification count
+prometheus_remote_storage_samples_total # Remote storage samples
 ```

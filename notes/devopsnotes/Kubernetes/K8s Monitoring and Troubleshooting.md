@@ -57,8 +57,7 @@ spec:
 ### Resource Monitoring
 
 ```bash
-# Enable metrics server
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml # Enable metrics server
 
 # View resource usage
 kubectl top nodes

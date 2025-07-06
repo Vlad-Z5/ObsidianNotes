@@ -20,37 +20,19 @@ curl 'http://localhost:9090/api/v1/labels'
 ### Admin API
 
 ```bash
-# Reload configuration
-curl -X POST http://localhost:9090/-/reload
-
-# Quit Prometheus
-curl -X POST http://localhost:9090/-/quit
-
-# Health check
-curl http://localhost:9090/-/healthy
-
-# Ready check
-curl http://localhost:9090/-/ready
-
-# Configuration
-curl http://localhost:9090/api/v1/status/config
-
-# Runtime information
-curl http://localhost:9090/api/v1/status/runtimeinfo
-
-# Build information
-curl http://localhost:9090/api/v1/status/buildinfo
+curl -X POST http://localhost:9090/-/reload # Reload configuration
+curl -X POST http://localhost:9090/-/quit # Quit Prometheus
+curl http://localhost:9090/-/healthy # Health check
+curl http://localhost:9090/-/ready # Ready check
+curl http://localhost:9090/api/v1/status/config # Configuration
+curl http://localhost:9090/api/v1/status/runtimeinfo # Runtime information
+curl http://localhost:9090/api/v1/status/buildinfo # Build information
 ```
 
 ### Targets and Rules API
 
 ```bash
-# Active targets
-curl http://localhost:9090/api/v1/targets
-
-# Rules
-curl http://localhost:9090/api/v1/rules
-
-# Alerts
-curl http://localhost:9090/api/v1/alerts
+curl http://localhost:9090/api/v1/targets # Active targets
+curl http://localhost:9090/api/v1/rules # Rules
+curl http://localhost:9090/api/v1/alerts # Alerts
 ```

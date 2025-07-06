@@ -49,29 +49,14 @@ terraform {
 ### State Commands
 
 ```bash
-# Show current state
-terraform show
-
-# List resources in state
-terraform state list
-
-# Show specific resource
-terraform state show aws_instance.example
-
-# Move resource in state
-terraform state mv aws_instance.old_name aws_instance.new_name
-
-# Remove resource from state (doesn't destroy)
-terraform state rm aws_instance.example
-
-# Import existing resource into state
-terraform import aws_instance.example i-1234567890abcdef0
-
-# Refresh state to match real infrastructure
-terraform refresh
-
-# Replace specific resource
-terraform apply -replace=aws_instance.example
+terraform show # Show current state
+terraform state list # List resources in state
+terraform state show aws_instance.example # Show specific resource
+terraform state mv aws_instance.old_name aws_instance.new_name # Move resource in state
+terraform state rm aws_instance.example # Remove resource from state (doesn't destroy)
+terraform import aws_instance.example i-1234567890abcdef0 # Import existing resource into state
+terraform refresh # Refresh state to match real infrastructure
+terraform apply -replace=aws_instance.example # Replace specific resource
 ```
 
 ### State Locking

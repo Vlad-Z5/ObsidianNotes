@@ -3,37 +3,25 @@ Encrypt sensitive data like passwords, keys, and certificates in Ansible files.
 ## Basic Commands
 
 ```bash
-# Create encrypted file
-ansible-vault create secrets.yml
+ansible-vault create secrets.yml # Create encrypted file
+ansible-vault edit secrets.yml # Edit encrypted file
+ansible-vault encrypt plaintext.yml # Encrypt existing file
+ansible-vault decrypt secrets.yml # Decrypt file
+ansible-vault view secrets.yml # View encrypted file
+ansible-vault rekey secrets.yml # Change password
 
-# Edit encrypted file
-ansible-vault edit secrets.yml
-
-# Encrypt existing file
-ansible-vault encrypt plaintext.yml
-
-# Decrypt file
-ansible-vault decrypt secrets.yml
-
-# View encrypted file
-ansible-vault view secrets.yml
-
-# Change password
-ansible-vault rekey secrets.yml
 ```
 
 ## Using Encrypted Files
 
 ```bash
-# Run playbook with vault password prompt
-ansible-playbook -K --ask-vault-pass playbook.yml
+ansible-playbook -K --ask-vault-pass playbook.yml # Run playbook with sudo and vault password prompt
 
-# Use password file
-ansible-playbook --vault-password-file ~/.vault_pass playbook.yml
+ansible-playbook --vault-password-file ~/.vault_pass playbook.yml # Use vault password file
 
-# Use environment variable
-export ANSIBLE_VAULT_PASSWORD_FILE=~/.vault_pass
-ansible-playbook playbook.yml
+export ANSIBLE_VAULT_PASSWORD_FILE=~/.vault_pass # Set vault password file env var
+ansible-playbook playbook.yml # Run playbook using env var
+
 ```
 
 ## Encrypting Variables
@@ -65,11 +53,9 @@ database_password: !vault |
 ## Vault ID Labels
 
 ```bash
-# Create with specific vault ID
-ansible-vault create --vault-id prod@prompt secrets.yml
+ansible-vault create --vault-id prod@prompt secrets.yml # Create file with specific vault ID and prompt
 
-# Use multiple vault IDs
-ansible-playbook --vault-id dev@dev_pass --vault-id prod@prod_pass playbook.yml
+ansible-playbook --vault-id dev@dev_pass --vault-id prod@prod_pass playbook.yml # Run playbook using multiple vault IDs
 ```
 
 ## Best Practices

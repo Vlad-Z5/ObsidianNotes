@@ -51,11 +51,9 @@ terraform apply -replace=aws_instance.web
 ### State File Corruption
 
 ```bash
-# Backup current state
-terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate
+terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate # Backup current state
 
-# Restore from backup
-terraform state push backup-20240115-103000.tfstate
+terraform state push backup-20240115-103000.tfstate # Restore from backup
 
 # Recover from S3 versioning
 aws s3api list-object-versions --bucket my-terraform-state --prefix path/terraform.tfstate
@@ -68,7 +66,6 @@ terraform state push terraform.tfstate
 ### AWS Provider Authentication
 
 ```bash
-# Error: NoCredentialsError
 Error: NoCredentialsError: Unable to locate credentials
 
 # Solutions:
@@ -111,7 +108,6 @@ provider "aws" {
 ### Provider Version Conflicts
 
 ```bash
-# Error: Terraform version constraint not met
 Error: Terraform version constraint not met
 
 # Check versions
@@ -183,7 +179,6 @@ resource "aws_security_group" "web" {
 ### Dependency Issues
 
 ```bash
-# Error: Resource depends on resource that will be destroyed
 Error: Resource "aws_instance.web" depends on resource "aws_security_group.web" that will be destroyed
 
 # Solutions:
@@ -244,7 +239,6 @@ variable "instance_count" {
 ### HCL Syntax Errors
 
 ```bash
-# Error: Invalid HCL syntax
 Error: Invalid character
 
 # Common syntax issues:
@@ -479,11 +473,9 @@ resource "aws_security_group" "web" {
 export TF_LOG=DEBUG
 export TF_LOG_PATH=terraform.log
 
-# Validate configuration
-terraform validate
 
-# Check formatting
-terraform fmt -check -diff
+terraform validate # Validate configuration
+terraform fmt -check -diff # Check formatting
 
 # Plan with detailed output
 terraform plan -out=tfplan
@@ -494,8 +486,7 @@ terraform show
 terraform state list
 terraform state show aws_instance.web
 
-# Graph dependencies
-terraform graph | dot -Tpng > graph.png
+terraform graph | dot -Tpng > graph.png # Graph dependencies
 
 # Console for testing expressions
 terraform console
@@ -512,17 +503,11 @@ terraform plan -detailed-exitcode
 ### Recovery and Cleanup
 
 ```bash
-# Emergency cleanup
-terraform destroy -auto-approve
+terraform destroy -auto-approve # Emergency cleanup
+terraform destroy -target=aws_instance.web # Selective cleanup
+terraform state rm aws_instance.corrupted # Remove corrupted resources
+terraform import aws_instance.existing i-1234567890abcdef0 # Import existing resources
 
-# Selective cleanup
-terraform destroy -target=aws_instance.web
-
-# Remove corrupted resources
-terraform state rm aws_instance.corrupted
-
-# Import existing resources
-terraform import aws_instance.existing i-1234567890abcdef0
 
 # Backup and restore state
 terraform state pull > backup.tfstate

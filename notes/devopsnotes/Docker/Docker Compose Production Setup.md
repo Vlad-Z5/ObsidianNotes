@@ -162,7 +162,7 @@ networks:
         - subnet: 172.20.0.0/16
   backend:
     driver: bridge
-    internal: true  # No external access
+    internal: true # No external access
 
 secrets:
   db_password:
@@ -191,11 +191,11 @@ docker-compose logs -f --tail=100 web
 docker-compose exec web sh
 docker-compose top
 docker-compose ps --services --filter status=running
-docker-compose config  # Validate and view config
-docker-compose events  # Real-time events
+docker-compose config # Validate and view config
+docker-compose events # Real-time events
 
 # Resource management
 docker-compose down -v --remove-orphans
-docker-compose pull   # Update images
+docker-compose pull # Update images
 ```
 

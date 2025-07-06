@@ -40,6 +40,6 @@ docker info | grep "Backing Filesystem"
 # Layers: lower (read-only) + upper (writable) + work + merged
 
 # Container layer inspection
-docker diff container_name          # Shows changes in writable layer
-docker export container_name > container.tar  # Export container filesystem
+docker diff container_name # Shows changes in writable layer
+docker export container_name > container.tar # Export container filesystem
 ```

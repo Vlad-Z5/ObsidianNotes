@@ -28,10 +28,10 @@ docker network create \
   macvlan-net
 
 # Host network (shares host networking stack)
-docker run --network host nginx    # No isolation, best performance
+docker run --network host nginx # No isolation, best performance
 
 # None network (no networking)
-docker run --network none alpine   # Complete isolation
+docker run --network none alpine # Complete isolation
 ```
 
 ### Container Communication Deep Dive
@@ -55,15 +55,15 @@ docker network connect backend app
 # Container now on both networks
 
 # Port mapping internals (iptables NAT rules)
-docker run -p 8080:80 nginx        # Host:Container
-docker run -p 127.0.0.1:8080:80 nginx  # Bind to specific interface
-docker run -P nginx                # Publish all EXPOSE ports randomly
+docker run -p 8080:80 nginx # Host:Container
+docker run -p 127.0.0.1:8080:80 nginx # Bind to specific interface
+docker run -P nginx # Publish all EXPOSE ports randomly
 
 # Network troubleshooting
-docker exec container nslookup service-name
-docker exec container ss -tulpn    # Socket statistics
-docker exec container ip route     # Routing table
-docker exec container iptables -L  # Firewall rules (if privileged)
+docker exec container nslookup service-name # DNS resolution check
+docker exec container ss -tulpn # Socket statistics
+docker exec container ip route # Routing table
+docker exec container iptables -L # Firewall rules (if privileged)
 ```
 
 ### Service Discovery Mechanisms
