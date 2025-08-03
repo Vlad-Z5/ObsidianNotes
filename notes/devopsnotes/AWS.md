@@ -1,5 +1,7 @@
 s = serverless (or can be)
 
+## [[AWS fundamental]]
+
 # Main services
 ## Compute
 

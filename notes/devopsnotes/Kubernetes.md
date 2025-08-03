@@ -23,3 +23,4 @@ Why kubernetes rather than docker swarm? - Kubernetes is more robust, scalable, 
 ## [[Helm Package Manager]]
 
 ## [[K8s Production Best Practices]]
+## [[K8 fundamental]]
