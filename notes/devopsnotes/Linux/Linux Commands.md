@@ -45,8 +45,9 @@
     - `ps` (process status) aux: all processes; -ef: full format
     - `top` (real-time process viewer) -u: filter by user
     - `htop` (interactive process viewer), has to be installed
+    - `pidof` <name>: get PID by name 
     - `vmstat`: report system performance statistics
-    - `kill` (terminate process) -9: force kill
+    - `kill` : SIGTERM to terminate process gracefully -9: SIGKILL to forcefully kill
     - `pkill` (kill by name)
     - `nice` (run with priority) -n: priority
     - `renice` (change priority) -n: priority

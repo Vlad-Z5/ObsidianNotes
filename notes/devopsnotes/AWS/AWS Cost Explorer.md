@@ -1,4 +1,4 @@
-- Visualise, understand, and manage AWS costs and usage over time
+- Visualize, understand, and manage AWS costs and usage over time
 - **Types:**
     - **Cost Explorer:** Interactive cost analysis interface
     - **Cost and Usage Reports:** Detailed billing data

@@ -9,3 +9,5 @@
 ## [[Linux File Types]]
 ## [[Linux Boot]]
 ## [[Linux Inode and links]]
+## [[Linux fundamental]]
+

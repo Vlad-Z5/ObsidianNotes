@@ -1,4 +1,4 @@
-Provides user authentication, authorisation, and user management
+Provides user authentication, authorization, and user management
 - **User Pools:** Sign-up/sign-in, user profiles, JWT token generation
 - **Identity Pools:** Federate identities from User Pools or external IdPs
 - **Federation:** Supports Google, Facebook, Apple, SAML, and OIDC

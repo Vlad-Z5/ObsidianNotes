@@ -13,3 +13,64 @@
 - **Resize:** Volume size and type can be modified without downtime
 - **Multi-Attach:** io1/io2 can attach to multiple instances in the same AZ (only for certain use cases)
 -  Main use cases: databases, file systems, boot volumes, and apps requiring persistent storage.
+
+## Increasing EBS Volume Size
+
+```bash
+# Modify Volume Size
+
+aws ec2 modify-volume --volume-id vol-<volume> --size NEW_SIZE # Resize command
+
+aws ec2 describe-volumes-modifications --volume-ids vol-<volume> # Wait until resize is complete
+
+# Resize filesystem
+
+sudo growpart /dev/<volume> # Extend partition if needed
+
+sudo resize2fs /dev/<volume> # Resize for ext4
+sudo xfs_growfs -d / # Resize for XFS
+```
+## Decreasing EBS Volume Size
+
+```bash
+
+
+# Shrink filesystem
+sudo umount /dev/xvdf
+sudo e2fsck -f /dev/xvdf
+sudo resize2fs /dev/xvdf 20G
+
+# Backup and Snapshot
+aws ec2 create-snapshot --volume-id vol-<volume>
+
+# Create smaller EBS volume from snapshot
+aws ec2 create-volume --snapshot-id snap-<id> --availability-zone <az> --size <size>
+
+# Attach new volume to instance
+aws ec2 attach-volume --volume-id vol-<new> --instance-id i-<instance> --device /dev/xvdg
+
+# Mount points
+sudo mkdir -p /mnt/oldvolume
+sudo mkdir -p /mnt/newvolume
+
+# Mount volumes
+sudo mount /dev/xvdf /mnt/oldvolume
+sudo mount /dev/xvdg /mnt/newvolume
+
+# Data transfer
+sudo rsync -aAXv /mnt/oldvolume/ /mnt/newvolume/
+
+# Unmount old
+sudo umount /mnt/oldvolume
+
+# Detach old
+aws ec2 detach-volume --volume-id vol-<old>
+
+# Mount new in place of old
+sudo mount /dev/xvdg /mnt/<original-mountpoint>
+
+# Optional: update /etc/fstab
+
+# Delete old
+aws ec2 delete-volume --volume-id vol-<old>
+```

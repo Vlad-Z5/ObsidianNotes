@@ -1,4 +1,4 @@
-Fully managed data warehouse service optimised for analytics workloads; based on Postgres, OLAP
+Fully managed data warehouse service optimized for analytics workloads; based on Postgres, OLAP
 - **Types:**
     - **RA3 Instances:** Managed storage, compute scaling
     - **DC2 Instances:** SSD storage, compute-intensive

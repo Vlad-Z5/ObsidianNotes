@@ -12,7 +12,7 @@ Content Delivery Network that achieves low latency via edge locations
 	- **Geo Restriction:** Allow or block content delivery based on viewer’s location
 	- **Signed URLs/Cookies:** Restrict access to private content
 	- **Field-Level Encryption:** Encrypt sensitive data like PII
-	- **Lambda@Edge:** Run functions at edge locations for dynamic customisation
+	- **Lambda@Edge:** Run functions at edge locations for dynamic customization
 	- **OAC**: signed requests with IAM service principal to access private S3
 	- **Cache invalidation** to update cache and stop using outdated info
 	- DDoS protection

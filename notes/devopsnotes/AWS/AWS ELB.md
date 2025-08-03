@@ -6,7 +6,7 @@
 	- **Gateway Load Balancer (GLB):** Layer 3 For deploying, scaling, and managing virtual appliances (firewalls, IDS/IPS)
 - **Features:**
 	- Health checks to route traffic only to healthy targets
-	- SSL/TLS termination (ALB, NLB with TLS listeners)
+	- SSL/TLS termination (ALB, specific NLB with TLS listeners)
 	- Integration with Auto Scaling Groups
 	- Support for sticky sessions
 	- Cross Zone Load Balancing (ALB and CLB, NLB can be enabled for additional payment)

@@ -1,4 +1,4 @@
-Interactive query service for analysing data in S3 using standard SQL, is built on Presto
+Interactive query service for analyzing data in S3 using standard SQL, is built on Presto
 - **Types:**
     - **Serverless Queries:** Pay per query execution
     - **Federated Queries:** Query across multiple data sources
@@ -6,9 +6,9 @@ Interactive query service for analysing data in S3 using standard SQL, is built 
     - Standard SQL support with ANSI SQL compliance
     - Integration with AWS Glue Data Catalog
     - Support for various data formats (Parquet, ORC, JSON, CSV, Avro)
-    - Columnar storage optimisation for performance
+    - Columnar storage optimization for performance
     - JDBC/ODBC connectivity for BI tools
-    - Workgroups for query organisation and cost control
+    - Workgroups for query organization and cost control
 - **Use Cases:**
     - Ad-hoc data analysis and exploration
     - Log analysis and troubleshooting

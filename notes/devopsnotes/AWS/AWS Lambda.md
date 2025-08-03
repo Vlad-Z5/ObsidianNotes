@@ -166,11 +166,6 @@ ConcurrentExecutions - Concurrent executions
 - **Compute Time** - Price per GB-second
 - **Provisioned Concurrency** - $0.0000041667 per GB-second
 
-### Free Tier
-
-- **1M requests** per month
-- **400,000 GB-seconds** compute time per month
-
 ## Performance Optimization
 
 ### Cold Start Mitigation

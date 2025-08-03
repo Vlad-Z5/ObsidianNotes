@@ -131,18 +131,15 @@ Object storage service that offers industry-leading scalability, data availabili
 #### **Server-Side Encryption (SSE)**
 
 - **SSE-S3 (AES-256):**
-    
     - **Default:** Applied to all new objects
     - **AWS Managed:** AWS handles key management
     - **Header:** `x-amz-server-side-encryption: AES256`
 - **SSE-KMS:**
-    
     - **AWS KMS Keys:** Customer-managed or AWS-managed
     - **Audit Trail:** CloudTrail logs key usage
     - **Request Quotas:** KMS API call limits apply
     - **Header:** `x-amz-server-side-encryption: aws:kms`
 - **SSE-C (Customer-Provided):**
-    
     - **Customer Keys:** You provide encryption keys
     - **HTTPS Required:** Keys transmitted over SSL
     - **No Key Storage:** AWS doesn't store the keys
