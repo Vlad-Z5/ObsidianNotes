@@ -1,9 +1,9 @@
-**Core Principles:** Visualisation platform for observability, multi-datasource support, dashboard composition, alerting engine, templating system, user management and permissions
+**Core Principles:** Visualisation platform for observability, multi-datasource support, dashboard composition, alerting engine, templating system, user management and permissions, **Loki log aggregation integration**, real-time monitoring, incident response workflows
 
 ## [[Grafana Installation & Setup]] 
 ## [[Data Sources]] 
-## [[Dashboard Creation]] 
-## [[Panel Types]] 
+## [[Dashboard Creation]]
+## [[Panel Types]]
 ## [[Queries & Transformations]] 
 ## [[Variables & Templating]] 
 ## [[Alerting]] 
@@ -13,3 +13,5 @@
 ## [[Plugins]] 
 ## [[Performance Optimization]] 
 ## [[Troubleshooting]]
+## [[Loki Integration Patterns]]
+## [[Production Runbooks]]

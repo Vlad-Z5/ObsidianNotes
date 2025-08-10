@@ -1,0 +1,15 @@
+**Core Principles:** Shell scripting for automation, system administration, log processing, deployment scripts, monitoring checks, error handling, performance optimization, security practices
+
+## [[Bash Scripting Fundamentals]]
+## [[Bash for System Administration]]
+## [[Bash Automation Scripts]]
+## [[Bash Log Processing & Analysis]]
+## [[Bash Deployment Scripts]]
+## [[Bash Monitoring & Health Checks]]
+## [[Bash Error Handling & Debugging]]
+## [[Bash Security Best Practices]]
+## [[Bash Performance & Optimization]]
+## [[Bash Integration with DevOps Tools]]
+## [[Bash Testing & Validation]]
+## [[Bash Advanced Patterns]]
+## [[Bash Troubleshooting]]

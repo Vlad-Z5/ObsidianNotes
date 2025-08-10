@@ -1,0 +1,17 @@
+**Core Principles:** Automated build, test, and deployment processes, version control integration, artifact management, environment promotion, rollback strategies, pipeline security, monitoring and observability
+
+## [[Pipeline Architecture & Design]]
+## [[Source Code Management Integration]]
+## [[Build Automation]]
+## [[Testing Strategies in Pipelines]]
+## [[Artifact Management]]
+## [[Environment Management]]
+## [[Deployment Strategies]]
+## [[Pipeline Security & Secrets]]
+## [[Pipeline Monitoring & Observability]]
+## [[Rollback & Recovery]]
+## [[Multi-Branch Pipelines]]
+## [[Infrastructure Pipeline (IaC)]]
+## [[Container Pipeline Workflows]]
+## [[Pipeline Performance Optimization]]
+## [[Pipeline Troubleshooting]]

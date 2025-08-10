@@ -1,0 +1,15 @@
+**Core Principles:** Zero-trust security, secret rotation, access control, encryption at rest and in transit, audit logging, compliance, secret lifecycle management
+
+## [[Secrets Management Fundamentals]]
+## [[HashiCorp Vault]]
+## [[AWS Secrets Manager]]
+## [[Azure Key Vault]]
+## [[Google Secret Manager]]
+## [[Kubernetes Secrets]]
+## [[Secret Rotation Strategies]]
+## [[Secrets in CI/CD Pipelines]]
+## [[Secrets Monitoring & Auditing]]
+## [[Secrets Compliance]]
+## [[Secrets Troubleshooting]]
+## [[Secret Injection Patterns]]
+## [[Secrets Security Best Practices]]

@@ -1,0 +1,15 @@
+**Core Principles:** System performance analysis, bottleneck identification, resource optimization, scalability planning, monitoring and profiling, capacity planning, performance testing
+
+## [[Performance Analysis Methodologies]]
+## [[System Resource Optimization]]
+## [[Application Performance Tuning]]
+## [[Database Performance Optimization]]
+## [[Network Performance]]
+## [[Storage Performance]]
+## [[Caching Strategies]]
+## [[Load Balancing Optimization]]
+## [[Performance Testing]]
+## [[Capacity Planning]]
+## [[Performance Monitoring]]
+## [[Troubleshooting Performance Issues]]
+## [[Performance Security Considerations]]

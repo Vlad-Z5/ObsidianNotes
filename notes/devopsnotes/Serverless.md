@@ -1,0 +1,15 @@
+**Core Principles:** Function as a Service (FaaS), event-driven architecture, auto-scaling, pay-per-use, stateless functions, cloud-native patterns, microservices integration, monitoring and observability
+
+## [[Serverless Architecture Fundamentals]]
+## [[AWS Lambda & Serverless]]
+## [[Azure Functions]]
+## [[Google Cloud Functions]]
+## [[Serverless Framework]]
+## [[Event-Driven Architectures]]
+## [[Serverless Monitoring & Observability]]
+## [[Serverless Security]]
+## [[Serverless CI/CD]]
+## [[Serverless Cost Optimization]]
+## [[Serverless Performance Tuning]]
+## [[Serverless Testing Strategies]]
+## [[Serverless Troubleshooting]]

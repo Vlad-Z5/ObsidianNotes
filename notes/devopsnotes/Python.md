@@ -1,0 +1,15 @@
+**Core Principles:** DevOps automation language, infrastructure scripting, API integration, log processing, monitoring tools, CI/CD pipeline scripting, cloud SDK integration, configuration management
+
+## [[Python DevOps Fundamentals]]
+## [[Python for Infrastructure Automation]]
+## [[Python Cloud SDKs (AWS, GCP, Azure)]]
+## [[Python Monitoring & Logging]]
+## [[Python API Integration]]
+## [[Python Configuration Management]]
+## [[Python Testing for DevOps]]
+## [[Python Performance & Optimization]]
+## [[Python Security Best Practices]]
+## [[Python Container & Kubernetes Integration]]
+## [[Python CI/CD Pipeline Scripting]]
+## [[Python Error Handling & Debugging]]
+## [[Python Package Management for DevOps]]

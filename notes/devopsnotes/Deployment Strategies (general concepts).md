@@ -1,0 +1,15 @@
+**Core Principles:** Release management, deployment patterns, risk mitigation, rollback strategies, testing in production, traffic management, monitoring deployment health
+
+## [[Blue-Green Deployments]]
+## [[Canary Deployments]]
+## [[Rolling Deployments]]
+## [[A/B Testing Deployments]]
+## [[Feature Flag Deployments]]
+## [[Immutable Deployments]]
+## [[Database Migration Strategies]]
+## [[Zero-Downtime Deployments]]
+## [[Rollback Strategies]]
+## [[Deployment Monitoring]]
+## [[Traffic Splitting]]
+## [[Deployment Security]]
+## [[Deployment Automation]]

@@ -11,7 +11,7 @@
 - [[Deployment Strategies (general concepts)]]
 - [[Serverless]]
 - [[Application Performance Monitoring (APM)]]
-- [[Database Operations]]
+- [[Databases]]
 - [[Performance Optimization]]
 - [[CI/CD Pipelines]]
 

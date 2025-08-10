@@ -1,0 +1,15 @@
+**Core Principles:** Business continuity, RTO/RPO targets, backup strategies, failover procedures, data replication, testing and validation, incident response, recovery automation
+
+## [[Disaster Recovery Fundamentals]]
+## [[Business Continuity Planning]]
+## [[Backup Strategies]]
+## [[Data Replication]]
+## [[Failover Procedures]]
+## [[DR Testing & Validation]]
+## [[Cloud DR Solutions]]
+## [[Database Disaster Recovery]]
+## [[Application Recovery]]
+## [[DR Automation]]
+## [[DR Monitoring]]
+## [[DR Compliance]]
+## [[DR Cost Optimization]]
