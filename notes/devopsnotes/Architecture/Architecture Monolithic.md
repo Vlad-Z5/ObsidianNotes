@@ -955,4 +955,974 @@ MONOLITHIC_SCENARIOS = {
 }
 ```
 
-This comprehensive section demonstrates how to build well-structured monolithic applications with clear module boundaries, proper dependency management, and decision frameworks for when to choose this architecture pattern. All examples show production-ready patterns with proper separation of concerns, dependency injection, and event-driven communication within the monolith.
+### Advanced Monolithic Patterns
+
+#### Plugin Architecture for Monoliths
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, List, Any, Optional, Type
+import importlib
+import inspect
+from dataclasses import dataclass
+from enum import Enum
+
+class PluginType(Enum):
+    PAYMENT_PROCESSOR = "payment_processor"
+    NOTIFICATION_PROVIDER = "notification_provider"
+    AUTHENTICATION_PROVIDER = "authentication_provider"
+    STORAGE_BACKEND = "storage_backend"
+    ANALYTICS_PROVIDER = "analytics_provider"
+
+@dataclass
+class PluginMetadata:
+    name: str
+    version: str
+    description: str
+    author: str
+    dependencies: List[str]
+    config_schema: Dict[str, Any]
+
+class Plugin(ABC):
+    """Base plugin interface"""
+    
+    @property
+    @abstractmethod
+    def metadata(self) -> PluginMetadata:
+        pass
+    
+    @abstractmethod
+    def initialize(self, config: Dict[str, Any]) -> bool:
+        pass
+    
+    @abstractmethod
+    def shutdown(self) -> None:
+        pass
+
+class PaymentPlugin(Plugin):
+    """Payment processor plugin interface"""
+    
+    @abstractmethod
+    def process_payment(self, amount: float, currency: str, 
+                       payment_method: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+    
+    @abstractmethod
+    def refund_payment(self, transaction_id: str, amount: float) -> Dict[str, Any]:
+        pass
+
+class StripePaymentPlugin(PaymentPlugin):
+    """Stripe payment processor implementation"""
+    
+    def __init__(self):
+        self.stripe_client = None
+        self.config = {}
+    
+    @property
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="stripe_payment",
+            version="1.0.0",
+            description="Stripe payment processing plugin",
+            author="Payment Team",
+            dependencies=["stripe"],
+            config_schema={
+                "api_key": {"type": "string", "required": True, "secret": True},
+                "webhook_secret": {"type": "string", "required": True, "secret": True},
+                "test_mode": {"type": "boolean", "default": False}
+            }
+        )
+    
+    def initialize(self, config: Dict[str, Any]) -> bool:
+        """Initialize Stripe client with configuration"""
+        try:
+            import stripe
+            self.config = config
+            stripe.api_key = config['api_key']
+            self.stripe_client = stripe
+            return True
+        except ImportError:
+            print("Stripe library not available")
+            return False
+        except Exception as e:
+            print(f"Failed to initialize Stripe plugin: {e}")
+            return False
+    
+    def process_payment(self, amount: float, currency: str, 
+                       payment_method: Dict[str, Any]) -> Dict[str, Any]:
+        """Process payment through Stripe"""
+        try:
+            payment_intent = self.stripe_client.PaymentIntent.create(
+                amount=int(amount * 100),  # Convert to cents
+                currency=currency,
+                payment_method=payment_method['id'],
+                confirm=True
+            )
+            
+            return {
+                'success': True,
+                'transaction_id': payment_intent.id,
+                'status': payment_intent.status,
+                'amount': amount,
+                'currency': currency
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'error_type': 'payment_failed'
+            }
+    
+    def refund_payment(self, transaction_id: str, amount: float) -> Dict[str, Any]:
+        """Process refund through Stripe"""
+        try:
+            refund = self.stripe_client.Refund.create(
+                payment_intent=transaction_id,
+                amount=int(amount * 100)
+            )
+            
+            return {
+                'success': True,
+                'refund_id': refund.id,
+                'status': refund.status,
+                'amount': amount
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'error_type': 'refund_failed'
+            }
+    
+    def shutdown(self) -> None:
+        """Cleanup Stripe resources"""
+        self.stripe_client = None
+        self.config = {}
+
+class PluginRegistry:
+    """Central registry for managing plugins"""
+    
+    def __init__(self):
+        self.plugins: Dict[str, Plugin] = {}
+        self.plugin_types: Dict[PluginType, List[str]] = {}
+        self.plugin_configs: Dict[str, Dict] = {}
+    
+    def register_plugin(self, plugin_type: PluginType, plugin: Plugin, 
+                       config: Dict[str, Any] = None) -> bool:
+        """Register a plugin with the system"""
+        plugin_name = plugin.metadata.name
+        
+        # Validate configuration
+        if config and not self._validate_config(plugin, config):
+            return False
+        
+        # Initialize plugin
+        if not plugin.initialize(config or {}):
+            return False
+        
+        # Register plugin
+        self.plugins[plugin_name] = plugin
+        
+        if plugin_type not in self.plugin_types:
+            self.plugin_types[plugin_type] = []
+        self.plugin_types[plugin_type].append(plugin_name)
+        
+        if config:
+            self.plugin_configs[plugin_name] = config
+        
+        return True
+    
+    def get_plugin(self, plugin_name: str) -> Optional[Plugin]:
+        """Get plugin by name"""
+        return self.plugins.get(plugin_name)
+    
+    def get_plugins_by_type(self, plugin_type: PluginType) -> List[Plugin]:
+        """Get all plugins of a specific type"""
+        plugin_names = self.plugin_types.get(plugin_type, [])
+        return [self.plugins[name] for name in plugin_names if name in self.plugins]
+    
+    def unregister_plugin(self, plugin_name: str) -> bool:
+        """Unregister a plugin"""
+        if plugin_name not in self.plugins:
+            return False
+        
+        plugin = self.plugins[plugin_name]
+        plugin.shutdown()
+        
+        del self.plugins[plugin_name]
+        
+        # Remove from type registry
+        for plugin_type, names in self.plugin_types.items():
+            if plugin_name in names:
+                names.remove(plugin_name)
+        
+        if plugin_name in self.plugin_configs:
+            del self.plugin_configs[plugin_name]
+        
+        return True
+    
+    def _validate_config(self, plugin: Plugin, config: Dict[str, Any]) -> bool:
+        """Validate plugin configuration against schema"""
+        schema = plugin.metadata.config_schema
+        
+        for field, rules in schema.items():
+            if rules.get('required', False) and field not in config:
+                print(f"Required field '{field}' missing in plugin config")
+                return False
+        
+        return True
+
+class PluginManager:
+    """High-level plugin management system"""
+    
+    def __init__(self):
+        self.registry = PluginRegistry()
+        self.default_plugins: Dict[PluginType, str] = {}
+    
+    def load_plugins_from_config(self, config: Dict[str, Any]) -> None:
+        """Load plugins from configuration"""
+        for plugin_config in config.get('plugins', []):
+            plugin_class = self._load_plugin_class(plugin_config['class'])
+            if plugin_class:
+                plugin = plugin_class()
+                plugin_type = PluginType(plugin_config['type'])
+                
+                success = self.registry.register_plugin(
+                    plugin_type, 
+                    plugin, 
+                    plugin_config.get('config', {})
+                )
+                
+                if success and plugin_config.get('default', False):
+                    self.default_plugins[plugin_type] = plugin.metadata.name
+    
+    def get_default_plugin(self, plugin_type: PluginType) -> Optional[Plugin]:
+        """Get the default plugin for a type"""
+        plugin_name = self.default_plugins.get(plugin_type)
+        if plugin_name:
+            return self.registry.get_plugin(plugin_name)
+        
+        # Fallback to first available plugin
+        plugins = self.registry.get_plugins_by_type(plugin_type)
+        return plugins[0] if plugins else None
+    
+    def _load_plugin_class(self, class_path: str) -> Optional[Type[Plugin]]:
+        """Dynamically load plugin class"""
+        try:
+            module_path, class_name = class_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            plugin_class = getattr(module, class_name)
+            
+            if not issubclass(plugin_class, Plugin):
+                print(f"Class {class_path} is not a valid Plugin")
+                return None
+            
+            return plugin_class
+        except Exception as e:
+            print(f"Failed to load plugin class {class_path}: {e}")
+            return None
+
+# Usage example in the main application
+class PaymentService:
+    """Service that uses payment plugins"""
+    
+    def __init__(self, plugin_manager: PluginManager):
+        self.plugin_manager = plugin_manager
+    
+    def process_payment(self, amount: float, currency: str, 
+                       payment_method: Dict[str, Any], 
+                       processor_name: str = None) -> Dict[str, Any]:
+        """Process payment using specified or default processor"""
+        
+        if processor_name:
+            plugin = self.plugin_manager.registry.get_plugin(processor_name)
+        else:
+            plugin = self.plugin_manager.get_default_plugin(PluginType.PAYMENT_PROCESSOR)
+        
+        if not plugin:
+            return {
+                'success': False,
+                'error': 'No payment processor available',
+                'error_type': 'configuration_error'
+            }
+        
+        if not isinstance(plugin, PaymentPlugin):
+            return {
+                'success': False,
+                'error': 'Invalid payment processor type',
+                'error_type': 'configuration_error'
+            }
+        
+        return plugin.process_payment(amount, currency, payment_method)
+```
+
+#### Monolith Decomposition Strategy
+
+```python
+import ast
+import networkx as nx
+from typing import Set, Dict, List, Tuple
+from dataclasses import dataclass
+from enum import Enum
+
+class DecompositionStrategy(Enum):
+    BY_DOMAIN = "by_domain"
+    BY_DATA = "by_data"
+    BY_USAGE_PATTERNS = "by_usage_patterns"
+    BY_TEAM_BOUNDARIES = "by_team_boundaries"
+
+@dataclass
+class ModuleMetrics:
+    name: str
+    lines_of_code: int
+    cyclomatic_complexity: int
+    coupling_in: int
+    coupling_out: int
+    cohesion_score: float
+    change_frequency: int
+    team_ownership: str
+
+@dataclass
+class DecompositionRecommendation:
+    source_module: str
+    target_microservice: str
+    confidence_score: float
+    rationale: List[str]
+    migration_complexity: str  # low, medium, high
+    estimated_effort_days: int
+
+class MonolithAnalyzer:
+    """Analyze monolithic codebase for decomposition opportunities"""
+    
+    def __init__(self, project_path: str):
+        self.project_path = project_path
+        self.dependency_graph = nx.DiGraph()
+        self.module_metrics: Dict[str, ModuleMetrics] = {}
+        self.domain_boundaries: Dict[str, Set[str]] = {}
+    
+    def analyze_codebase(self) -> Dict[str, Any]:
+        """Perform comprehensive codebase analysis"""
+        analysis_results = {
+            'module_metrics': self._analyze_modules(),
+            'dependency_analysis': self._analyze_dependencies(),
+            'domain_clustering': self._identify_domain_clusters(),
+            'hotspots': self._identify_change_hotspots(),
+            'coupling_metrics': self._calculate_coupling_metrics()
+        }
+        
+        return analysis_results
+    
+    def _analyze_modules(self) -> Dict[str, ModuleMetrics]:
+        """Analyze individual module metrics"""
+        metrics = {}
+        
+        # This would involve actual static code analysis
+        # For demonstration, using mock data
+        mock_modules = [
+            ModuleMetrics("user", 1200, 15, 3, 8, 0.8, 25, "user_team"),
+            ModuleMetrics("catalog", 2100, 22, 5, 12, 0.7, 18, "catalog_team"),
+            ModuleMetrics("orders", 1800, 28, 8, 15, 0.6, 35, "order_team"),
+            ModuleMetrics("payments", 900, 18, 4, 6, 0.9, 12, "payment_team"),
+            ModuleMetrics("inventory", 1100, 16, 6, 9, 0.75, 20, "inventory_team")
+        ]
+        
+        for module in mock_modules:
+            metrics[module.name] = module
+            
+        return metrics
+    
+    def _analyze_dependencies(self) -> Dict[str, Any]:
+        """Analyze inter-module dependencies"""
+        # Build dependency graph
+        dependencies = [
+            ("orders", "user"), ("orders", "catalog"), ("orders", "payments"),
+            ("orders", "inventory"), ("catalog", "inventory"), 
+            ("payments", "user"), ("inventory", "catalog")
+        ]
+        
+        for source, target in dependencies:
+            self.dependency_graph.add_edge(source, target)
+        
+        return {
+            'total_dependencies': len(dependencies),
+            'circular_dependencies': list(nx.simple_cycles(self.dependency_graph)),
+            'strongly_connected_components': list(nx.strongly_connected_components(self.dependency_graph)),
+            'dependency_depth': nx.dag_longest_path_length(self.dependency_graph) if nx.is_directed_acyclic_graph(self.dependency_graph) else "N/A (cycles exist)"
+        }
+    
+    def _identify_domain_clusters(self) -> Dict[str, Set[str]]:
+        """Identify potential domain boundaries using clustering"""
+        # Use community detection algorithms
+        undirected_graph = self.dependency_graph.to_undirected()
+        
+        # Simple clustering based on connectivity
+        clusters = {}
+        processed = set()
+        
+        for node in undirected_graph.nodes():
+            if node not in processed:
+                cluster = set()
+                self._dfs_cluster(undirected_graph, node, cluster, processed)
+                if len(cluster) > 1:
+                    cluster_name = f"domain_{len(clusters) + 1}"
+                    clusters[cluster_name] = cluster
+        
+        return clusters
+    
+    def _dfs_cluster(self, graph, node, cluster, processed, max_depth=2, current_depth=0):
+        """DFS-based clustering with depth limit"""
+        if current_depth > max_depth or node in processed:
+            return
+        
+        cluster.add(node)
+        processed.add(node)
+        
+        for neighbor in graph.neighbors(node):
+            if neighbor not in processed:
+                self._dfs_cluster(graph, neighbor, cluster, processed, max_depth, current_depth + 1)
+    
+    def _identify_change_hotspots(self) -> List[str]:
+        """Identify modules that change frequently"""
+        hotspots = []
+        
+        for module_name, metrics in self.module_metrics.items():
+            if metrics.change_frequency > 30:  # Threshold for high change frequency
+                hotspots.append(module_name)
+        
+        return sorted(hotspots, key=lambda x: self.module_metrics[x].change_frequency, reverse=True)
+    
+    def _calculate_coupling_metrics(self) -> Dict[str, float]:
+        """Calculate various coupling metrics"""
+        metrics = {}
+        
+        for module_name, module_metrics in self.module_metrics.items():
+            # Afferent coupling (Ca) - incoming dependencies
+            ca = module_metrics.coupling_in
+            
+            # Efferent coupling (Ce) - outgoing dependencies
+            ce = module_metrics.coupling_out
+            
+            # Instability (I) = Ce / (Ca + Ce)
+            instability = ce / (ca + ce) if (ca + ce) > 0 else 0
+            
+            # Abstractness (A) - would need to be calculated from actual code
+            abstractness = 0.5  # Mock value
+            
+            # Distance from main sequence (D) = |A + I - 1|
+            distance = abs(abstractness + instability - 1)
+            
+            metrics[module_name] = {
+                'afferent_coupling': ca,
+                'efferent_coupling': ce,
+                'instability': instability,
+                'abstractness': abstractness,
+                'distance_from_main_sequence': distance
+            }
+        
+        return metrics
+
+class DecompositionPlanner:
+    """Plan microservices decomposition strategy"""
+    
+    def __init__(self, analyzer: MonolithAnalyzer):
+        self.analyzer = analyzer
+        self.strategies = {
+            DecompositionStrategy.BY_DOMAIN: self._plan_by_domain,
+            DecompositionStrategy.BY_DATA: self._plan_by_data,
+            DecompositionStrategy.BY_USAGE_PATTERNS: self._plan_by_usage_patterns,
+            DecompositionStrategy.BY_TEAM_BOUNDARIES: self._plan_by_team_boundaries
+        }
+    
+    def create_decomposition_plan(self, strategy: DecompositionStrategy) -> List[DecompositionRecommendation]:
+        """Create decomposition plan using specified strategy"""
+        if strategy not in self.strategies:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        return self.strategies[strategy]()
+    
+    def _plan_by_domain(self) -> List[DecompositionRecommendation]:
+        """Plan decomposition based on domain boundaries"""
+        recommendations = []
+        analysis = self.analyzer.analyze_codebase()
+        domain_clusters = analysis['domain_clustering']
+        
+        for domain_name, modules in domain_clusters.items():
+            if len(modules) > 1:
+                # Create microservice for each domain cluster
+                primary_module = max(modules, key=lambda m: self.analyzer.module_metrics[m].lines_of_code)
+                
+                for module in modules:
+                    if module != primary_module:
+                        confidence = self._calculate_domain_confidence(module, modules)
+                        
+                        recommendations.append(DecompositionRecommendation(
+                            source_module=module,
+                            target_microservice=f"{domain_name}_service",
+                            confidence_score=confidence,
+                            rationale=[
+                                f"Strong domain cohesion with {domain_name}",
+                                f"Low coupling with other domains",
+                                f"Clear business boundary"
+                            ],
+                            migration_complexity="medium",
+                            estimated_effort_days=self._estimate_migration_effort(module)
+                        ))
+        
+        return recommendations
+    
+    def _plan_by_data(self) -> List[DecompositionRecommendation]:
+        """Plan decomposition based on data access patterns"""
+        recommendations = []
+        
+        # Mock data access analysis
+        data_ownership = {
+            "user": ["users", "user_profiles", "user_sessions"],
+            "catalog": ["products", "categories", "product_reviews"],
+            "orders": ["orders", "order_items"],
+            "payments": ["payments", "payment_methods"],
+            "inventory": ["inventory", "stock_movements"]
+        }
+        
+        for module, tables in data_ownership.items():
+            if len(tables) >= 2:  # Modules with significant data ownership
+                recommendations.append(DecompositionRecommendation(
+                    source_module=module,
+                    target_microservice=f"{module}_service",
+                    confidence_score=0.8,
+                    rationale=[
+                        f"Owns {len(tables)} database tables",
+                        "Clear data boundaries",
+                        "Minimal cross-module data access"
+                    ],
+                    migration_complexity="high",  # Data migration is complex
+                    estimated_effort_days=self._estimate_migration_effort(module) + 10
+                ))
+        
+        return recommendations
+    
+    def _plan_by_usage_patterns(self) -> List[DecompositionRecommendation]:
+        """Plan decomposition based on usage patterns and scalability needs"""
+        recommendations = []
+        
+        # Mock usage pattern analysis
+        usage_patterns = {
+            "catalog": {"reads_per_day": 100000, "writes_per_day": 1000, "peak_factor": 5},
+            "orders": {"reads_per_day": 50000, "writes_per_day": 10000, "peak_factor": 3},
+            "user": {"reads_per_day": 80000, "writes_per_day": 5000, "peak_factor": 2},
+            "payments": {"reads_per_day": 20000, "writes_per_day": 8000, "peak_factor": 4},
+            "inventory": {"reads_per_day": 30000, "writes_per_day": 15000, "peak_factor": 2}
+        }
+        
+        for module, patterns in usage_patterns.items():
+            total_operations = patterns["reads_per_day"] + patterns["writes_per_day"]
+            
+            if total_operations > 75000 or patterns["peak_factor"] > 3:
+                recommendations.append(DecompositionRecommendation(
+                    source_module=module,
+                    target_microservice=f"{module}_service",
+                    confidence_score=0.9,
+                    rationale=[
+                        f"High traffic: {total_operations:,} operations/day",
+                        f"High peak factor: {patterns['peak_factor']}x",
+                        "Benefits from independent scaling"
+                    ],
+                    migration_complexity="medium",
+                    estimated_effort_days=self._estimate_migration_effort(module) + 5
+                ))
+        
+        return recommendations
+    
+    def _plan_by_team_boundaries(self) -> List[DecompositionRecommendation]:
+        """Plan decomposition based on team ownership"""
+        recommendations = []
+        
+        team_modules = {}
+        for module_name, metrics in self.analyzer.module_metrics.items():
+            team = metrics.team_ownership
+            if team not in team_modules:
+                team_modules[team] = []
+            team_modules[team].append(module_name)
+        
+        for team, modules in team_modules.items():
+            if len(modules) == 1:  # One team, one module = good microservice candidate
+                module = modules[0]
+                recommendations.append(DecompositionRecommendation(
+                    source_module=module,
+                    target_microservice=f"{module}_service",
+                    confidence_score=0.85,
+                    rationale=[
+                        f"Clear team ownership by {team}",
+                        "Reduced coordination overhead",
+                        "Independent deployment capability"
+                    ],
+                    migration_complexity="low",
+                    estimated_effort_days=self._estimate_migration_effort(module)
+                ))
+        
+        return recommendations
+    
+    def _calculate_domain_confidence(self, module: str, domain_modules: Set[str]) -> float:
+        """Calculate confidence score for domain-based decomposition"""
+        metrics = self.analyzer.module_metrics[module]
+        
+        # Base confidence on cohesion and coupling
+        base_confidence = metrics.cohesion_score
+        
+        # Adjust based on coupling with domain modules vs external modules
+        domain_coupling = 0
+        external_coupling = 0
+        
+        for target in self.analyzer.dependency_graph.neighbors(module):
+            if target in domain_modules:
+                domain_coupling += 1
+            else:
+                external_coupling += 1
+        
+        total_coupling = domain_coupling + external_coupling
+        if total_coupling > 0:
+            coupling_factor = domain_coupling / total_coupling
+            base_confidence = (base_confidence + coupling_factor) / 2
+        
+        return min(base_confidence, 1.0)
+    
+    def _estimate_migration_effort(self, module: str) -> int:
+        """Estimate migration effort in days"""
+        metrics = self.analyzer.module_metrics[module]
+        
+        # Base effort on lines of code and complexity
+        base_effort = (metrics.lines_of_code / 1000) * 5  # 5 days per 1000 LOC
+        complexity_factor = metrics.cyclomatic_complexity / 10
+        coupling_factor = (metrics.coupling_in + metrics.coupling_out) / 5
+        
+        total_effort = base_effort * (1 + complexity_factor + coupling_factor)
+        
+        return max(int(total_effort), 3)  # Minimum 3 days
+```
+
+#### Monolith Performance Optimization
+
+```python
+import time
+import threading
+from functools import wraps
+from typing import Callable, Any, Dict, List
+from collections import defaultdict, deque
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import weakref
+
+class PerformanceProfiler:
+    """Advanced performance profiler for monolithic applications"""
+    
+    def __init__(self):
+        self.call_stats = defaultdict(lambda: {
+            'count': 0,
+            'total_time': 0,
+            'avg_time': 0,
+            'max_time': 0,
+            'min_time': float('inf')
+        })
+        self.memory_usage = deque(maxlen=1000)
+        self.active_requests = 0
+        self.request_queue = deque(maxlen=10000)
+        self.lock = threading.Lock()
+    
+    def profile_function(self, func_name: str = None):
+        """Decorator to profile function performance"""
+        def decorator(func):
+            name = func_name or f"{func.__module__}.{func.__name__}"
+            
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                start_time = time.time()
+                
+                try:
+                    result = func(*args, **kwargs)
+                    success = True
+                    return result
+                except Exception as e:
+                    success = False
+                    raise e
+                finally:
+                    end_time = time.time()
+                    duration = end_time - start_time
+                    
+                    with self.lock:
+                        stats = self.call_stats[name]
+                        stats['count'] += 1
+                        stats['total_time'] += duration
+                        stats['avg_time'] = stats['total_time'] / stats['count']
+                        stats['max_time'] = max(stats['max_time'], duration)
+                        stats['min_time'] = min(stats['min_time'], duration)
+                        stats['success'] = success
+            
+            return wrapper
+        return decorator
+    
+    def get_performance_report(self) -> Dict[str, Any]:
+        """Generate comprehensive performance report"""
+        with self.lock:
+            report = {
+                'timestamp': time.time(),
+                'function_stats': dict(self.call_stats),
+                'system_stats': {
+                    'active_requests': self.active_requests,
+                    'total_requests_processed': sum(stats['count'] for stats in self.call_stats.values())
+                },
+                'hotspots': self._identify_hotspots(),
+                'bottlenecks': self._identify_bottlenecks()
+            }
+        
+        return report
+    
+    def _identify_hotspots(self) -> List[Dict[str, Any]]:
+        """Identify performance hotspots"""
+        hotspots = []
+        
+        for func_name, stats in self.call_stats.items():
+            if stats['count'] > 100 and stats['avg_time'] > 0.1:  # High usage, slow functions
+                hotspots.append({
+                    'function': func_name,
+                    'call_count': stats['count'],
+                    'avg_time': stats['avg_time'],
+                    'total_time': stats['total_time'],
+                    'hotspot_score': stats['count'] * stats['avg_time']
+                })
+        
+        return sorted(hotspots, key=lambda x: x['hotspot_score'], reverse=True)
+    
+    def _identify_bottlenecks(self) -> List[Dict[str, Any]]:
+        """Identify performance bottlenecks"""
+        bottlenecks = []
+        
+        for func_name, stats in self.call_stats.items():
+            if stats['max_time'] > 1.0:  # Functions that sometimes take too long
+                bottlenecks.append({
+                    'function': func_name,
+                    'max_time': stats['max_time'],
+                    'avg_time': stats['avg_time'],
+                    'variance': stats['max_time'] - stats['min_time']
+                })
+        
+        return sorted(bottlenecks, key=lambda x: x['max_time'], reverse=True)
+
+class SmartCachingLayer:
+    """Intelligent caching layer with adaptive policies"""
+    
+    def __init__(self, max_size: int = 10000):
+        self.cache = {}
+        self.access_times = {}
+        self.access_counts = defaultdict(int)
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self.max_size = max_size
+        self.lock = threading.Lock()
+        
+        # Adaptive caching policies
+        self.ttl_policies = {
+            'frequent': 3600,    # 1 hour for frequently accessed items
+            'normal': 1800,      # 30 minutes for normal items
+            'rare': 600          # 10 minutes for rarely accessed items
+        }
+    
+    def get(self, key: str, fetch_function: Callable = None) -> Any:
+        """Get value from cache with automatic fetching"""
+        with self.lock:
+            if key in self.cache:
+                self.cache_hits += 1
+                self.access_times[key] = time.time()
+                self.access_counts[key] += 1
+                return self.cache[key]['value']
+            
+            self.cache_misses += 1
+        
+        if fetch_function:
+            value = fetch_function()
+            self.set(key, value)
+            return value
+        
+        return None
+    
+    def set(self, key: str, value: Any) -> None:
+        """Set value in cache with adaptive TTL"""
+        with self.lock:
+            if len(self.cache) >= self.max_size:
+                self._evict_items()
+            
+            # Determine TTL based on access pattern
+            access_count = self.access_counts.get(key, 0)
+            if access_count > 100:
+                ttl = self.ttl_policies['frequent']
+            elif access_count > 10:
+                ttl = self.ttl_policies['normal']
+            else:
+                ttl = self.ttl_policies['rare']
+            
+            self.cache[key] = {
+                'value': value,
+                'created_at': time.time(),
+                'ttl': ttl,
+                'access_count': access_count
+            }
+            self.access_times[key] = time.time()
+    
+    def _evict_items(self) -> None:
+        """Evict items using adaptive LRU policy"""
+        current_time = time.time()
+        
+        # First, remove expired items
+        expired_keys = []
+        for key, item in self.cache.items():
+            if current_time - item['created_at'] > item['ttl']:
+                expired_keys.append(key)
+        
+        for key in expired_keys:
+            del self.cache[key]
+            if key in self.access_times:
+                del self.access_times[key]
+        
+        # If still over capacity, use LRU
+        if len(self.cache) >= self.max_size:
+            # Sort by last access time
+            lru_keys = sorted(self.access_times.keys(), 
+                            key=lambda k: self.access_times[k])
+            
+            # Remove oldest 20% of items
+            items_to_remove = max(1, len(lru_keys) // 5)
+            for key in lru_keys[:items_to_remove]:
+                if key in self.cache:
+                    del self.cache[key]
+                del self.access_times[key]
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache performance statistics"""
+        total_requests = self.cache_hits + self.cache_misses
+        hit_rate = (self.cache_hits / total_requests) if total_requests > 0 else 0
+        
+        return {
+            'hit_rate': hit_rate,
+            'cache_hits': self.cache_hits,
+            'cache_misses': self.cache_misses,
+            'cache_size': len(self.cache),
+            'max_size': self.max_size,
+            'utilization': len(self.cache) / self.max_size
+        }
+
+class ResourcePoolManager:
+    """Manage resource pools for database connections, HTTP clients, etc."""
+    
+    def __init__(self):
+        self.pools = {}
+        self.pool_configs = {}
+    
+    def create_pool(self, pool_name: str, factory_func: Callable, 
+                   min_size: int = 5, max_size: int = 20) -> None:
+        """Create a new resource pool"""
+        pool = ResourcePool(factory_func, min_size, max_size)
+        self.pools[pool_name] = pool
+        self.pool_configs[pool_name] = {
+            'min_size': min_size,
+            'max_size': max_size,
+            'factory': factory_func
+        }
+    
+    def get_resource(self, pool_name: str) -> Any:
+        """Get resource from pool"""
+        if pool_name not in self.pools:
+            raise ValueError(f"Pool {pool_name} not found")
+        
+        return self.pools[pool_name].acquire()
+    
+    def return_resource(self, pool_name: str, resource: Any) -> None:
+        """Return resource to pool"""
+        if pool_name in self.pools:
+            self.pools[pool_name].release(resource)
+    
+    def get_pool_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get statistics for all pools"""
+        stats = {}
+        for pool_name, pool in self.pools.items():
+            stats[pool_name] = pool.get_stats()
+        return stats
+
+class ResourcePool:
+    """Generic resource pool implementation"""
+    
+    def __init__(self, factory_func: Callable, min_size: int, max_size: int):
+        self.factory_func = factory_func
+        self.min_size = min_size
+        self.max_size = max_size
+        self.available = deque()
+        self.in_use = set()
+        self.total_created = 0
+        self.lock = threading.Lock()
+        
+        # Pre-populate with minimum resources
+        for _ in range(min_size):
+            resource = self._create_resource()
+            self.available.append(resource)
+    
+    def acquire(self) -> Any:
+        """Acquire resource from pool"""
+        with self.lock:
+            if self.available:
+                resource = self.available.popleft()
+                self.in_use.add(id(resource))
+                return resource
+            
+            if len(self.in_use) < self.max_size:
+                resource = self._create_resource()
+                self.in_use.add(id(resource))
+                return resource
+        
+        # Pool exhausted, wait for resource to become available
+        raise RuntimeError("Resource pool exhausted")
+    
+    def release(self, resource: Any) -> None:
+        """Release resource back to pool"""
+        with self.lock:
+            resource_id = id(resource)
+            if resource_id in self.in_use:
+                self.in_use.remove(resource_id)
+                
+                if self._is_resource_healthy(resource):
+                    self.available.append(resource)
+                else:
+                    # Replace unhealthy resource
+                    try:
+                        new_resource = self._create_resource()
+                        self.available.append(new_resource)
+                    except Exception:
+                        pass  # Failed to create replacement
+    
+    def _create_resource(self) -> Any:
+        """Create new resource"""
+        try:
+            resource = self.factory_func()
+            self.total_created += 1
+            return resource
+        except Exception as e:
+            raise RuntimeError(f"Failed to create resource: {e}")
+    
+    def _is_resource_healthy(self, resource: Any) -> bool:
+        """Check if resource is still healthy"""
+        # Basic health check - can be overridden
+        try:
+            return hasattr(resource, '__dict__')  # Simple check
+        except Exception:
+            return False
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get pool statistics"""
+        with self.lock:
+            return {
+                'available': len(self.available),
+                'in_use': len(self.in_use),
+                'total_created': self.total_created,
+                'utilization': len(self.in_use) / self.max_size,
+                'min_size': self.min_size,
+                'max_size': self.max_size
+            }
+```
+
+This comprehensive section demonstrates how to build well-structured monolithic applications with clear module boundaries, proper dependency management, decision frameworks, advanced plugin architectures, decomposition strategies, and performance optimization techniques. All examples show production-ready patterns with proper separation of concerns, dependency injection, event-driven communication within the monolith, and sophisticated optimization approaches for enterprise-scale monolithic applications.

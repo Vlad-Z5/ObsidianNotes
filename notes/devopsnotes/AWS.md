@@ -96,3 +96,38 @@ s = serverless (or can be)
 [[AWS Data Pipeline]]  
 [[AWS Lake Formation]]s  
 [[AWS Kinesis]]s
+
+# Prioritized AWS Tools for DevOps
+
+## Tier 1 - Essential DevOps Services
+1. **[[AWS EC2]]** - Core compute infrastructure, virtual servers
+2. **[[AWS VPC]]** - Network isolation and security foundation
+3. **[[AWS IAM]]** - Identity and access management, security foundation
+4. **[[AWS S3]]** - Object storage for artifacts, backups, static assets
+5. **[[AWS CloudFormation]]** - Infrastructure as Code (IaC) deployment
+6. **[[AWS CloudWatch]]** - Monitoring, logging, and observability
+7. **[[AWS Route 53]]** - DNS management and health checks
+
+## Tier 2 - CI/CD and Automation
+8. **[[AWS CodePipeline]]** - CI/CD orchestration and automation
+9. **[[AWS CodeBuild]]** - Build service for compilation and testing
+10. **[[AWS CodeDeploy]]** - Application deployment automation
+11. **[[AWS Lambda]]** - Serverless compute for automation tasks
+12. **[[AWS Systems Manager (SSM)]]** - Instance management and automation
+13. **[[AWS ECR]]** - Container registry for Docker images
+14. **[[AWS Secrets Manager]]** - Secure credential and secret management
+
+## Tier 3 - Container and Advanced Orchestration
+15. **[[AWS ECS]]** - Container orchestration service
+16. **[[AWS EKS]]** - Managed Kubernetes service
+17. **[[AWS ELB]]** - Load balancing for high availability
+18. **[[AWS CloudTrail]]** - Audit logging and compliance
+19. **[[AWS Config]]** - Configuration management and compliance
+20. **[[AWS KMS]]** - Key management and encryption
+
+## Tier 4 - Specialized DevOps Tools
+21. **[[AWS X-Ray]]** - Distributed tracing and performance analysis
+22. **[[AWS EventBridge]]** - Event-driven architecture coordination
+23. **[[AWS Step Functions]]** - Workflow orchestration for complex processes
+24. **[[AWS CDK]]** - Infrastructure as Code using programming languages
+25. **[[AWS Elastic Beanstalk]]** - Platform-as-a-Service for quick deployments

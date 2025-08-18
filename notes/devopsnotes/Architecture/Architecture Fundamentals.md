@@ -800,4 +800,707 @@ and ecosystem maturity, with migration path to ClickHouse for analytics
 workloads as the platform scales.
 ```
 
-This comprehensive coverage of Architecture Fundamentals provides the foundation for understanding all other architectural concepts. Each principle is explained with concrete examples and real-world applications, demonstrating how these fundamentals apply in practice.
+### Advanced Architectural Concepts
+
+#### Domain-Driven Design (DDD) Fundamentals
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Optional, Dict, Any
+from dataclasses import dataclass
+from enum import Enum
+import uuid
+from datetime import datetime
+
+# Value Objects - Immutable objects defined by their attributes
+@dataclass(frozen=True)
+class Money:
+    amount: float
+    currency: str
+    
+    def __post_init__(self):
+        if self.amount < 0:
+            raise ValueError("Amount cannot be negative")
+        if not self.currency or len(self.currency) != 3:
+            raise ValueError("Currency must be 3-letter code")
+    
+    def add(self, other: 'Money') -> 'Money':
+        if self.currency != other.currency:
+            raise ValueError("Cannot add different currencies")
+        return Money(self.amount + other.amount, self.currency)
+
+@dataclass(frozen=True)
+class EmailAddress:
+    value: str
+    
+    def __post_init__(self):
+        if not self._is_valid_email(self.value):
+            raise ValueError("Invalid email address")
+    
+    def _is_valid_email(self, email: str) -> bool:
+        return "@" in email and "." in email.split("@")[1]
+
+# Entities - Objects with identity that persists over time
+class Customer:
+    def __init__(self, customer_id: str, email: EmailAddress, name: str):
+        self.id = customer_id
+        self.email = email
+        self.name = name
+        self.created_at = datetime.now()
+        self.version = 1
+        self._domain_events: List[DomainEvent] = []
+    
+    def change_email(self, new_email: EmailAddress) -> None:
+        if self.email != new_email:
+            old_email = self.email
+            self.email = new_email
+            self.version += 1
+            
+            # Raise domain event
+            self._domain_events.append(
+                CustomerEmailChangedEvent(self.id, old_email, new_email)
+            )
+    
+    def get_domain_events(self) -> List['DomainEvent']:
+        events = self._domain_events.copy()
+        self._domain_events.clear()
+        return events
+
+# Aggregates - Consistency boundaries
+class Order:
+    def __init__(self, order_id: str, customer_id: str):
+        self.id = order_id
+        self.customer_id = customer_id
+        self.items: List[OrderItem] = []
+        self.status = OrderStatus.PENDING
+        self.total = Money(0.0, "USD")
+        self.version = 1
+        self._domain_events: List[DomainEvent] = []
+    
+    def add_item(self, product_id: str, quantity: int, unit_price: Money) -> None:
+        if self.status != OrderStatus.PENDING:
+            raise DomainException("Cannot modify confirmed order")
+        
+        # Check business rules
+        if quantity <= 0:
+            raise DomainException("Quantity must be positive")
+        
+        # Add item
+        item = OrderItem(product_id, quantity, unit_price)
+        self.items.append(item)
+        
+        # Recalculate total
+        self._recalculate_total()
+        self.version += 1
+    
+    def confirm(self) -> None:
+        if not self.items:
+            raise DomainException("Cannot confirm empty order")
+        
+        if self.status != OrderStatus.PENDING:
+            raise DomainException("Order already confirmed")
+        
+        self.status = OrderStatus.CONFIRMED
+        self.version += 1
+        
+        # Raise domain event
+        self._domain_events.append(
+            OrderConfirmedEvent(self.id, self.customer_id, self.total)
+        )
+    
+    def _recalculate_total(self) -> None:
+        total_amount = sum(item.subtotal().amount for item in self.items)
+        self.total = Money(total_amount, "USD")
+
+# Domain Events
+@dataclass(frozen=True)
+class DomainEvent:
+    event_id: str
+    occurred_at: datetime
+    aggregate_id: str
+
+@dataclass(frozen=True)
+class OrderConfirmedEvent(DomainEvent):
+    customer_id: str
+    total: Money
+    
+    def __init__(self, order_id: str, customer_id: str, total: Money):
+        super().__init__(
+            event_id=str(uuid.uuid4()),
+            occurred_at=datetime.now(),
+            aggregate_id=order_id
+        )
+        object.__setattr__(self, 'customer_id', customer_id)
+        object.__setattr__(self, 'total', total)
+
+# Domain Services - Stateless operations that don't belong to entities
+class OrderPricingService:
+    def __init__(self, pricing_repository: 'PricingRepository'):
+        self.pricing_repository = pricing_repository
+    
+    def calculate_order_total(self, order: Order) -> Money:
+        """Calculate order total with applied discounts and taxes"""
+        subtotal = sum(item.subtotal().amount for item in order.items)
+        
+        # Apply customer-specific discounts
+        discount = self._calculate_discount(order.customer_id, subtotal)
+        
+        # Apply taxes
+        tax = self._calculate_tax(subtotal - discount)
+        
+        return Money(subtotal - discount + tax, "USD")
+    
+    def _calculate_discount(self, customer_id: str, subtotal: float) -> float:
+        # Complex discount calculation logic
+        customer_tier = self.pricing_repository.get_customer_tier(customer_id)
+        return subtotal * customer_tier.discount_rate
+    
+    def _calculate_tax(self, amount: float) -> float:
+        # Tax calculation based on business rules
+        return amount * 0.08  # 8% tax rate
+
+# Repositories - Persistence abstraction
+class OrderRepository(ABC):
+    @abstractmethod
+    def find_by_id(self, order_id: str) -> Optional[Order]:
+        pass
+    
+    @abstractmethod
+    def save(self, order: Order) -> None:
+        pass
+    
+    @abstractmethod
+    def find_by_customer(self, customer_id: str) -> List[Order]:
+        pass
+
+class InMemoryOrderRepository(OrderRepository):
+    def __init__(self):
+        self._orders: Dict[str, Order] = {}
+    
+    def find_by_id(self, order_id: str) -> Optional[Order]:
+        return self._orders.get(order_id)
+    
+    def save(self, order: Order) -> None:
+        self._orders[order.id] = order
+    
+    def find_by_customer(self, customer_id: str) -> List[Order]:
+        return [order for order in self._orders.values() 
+                if order.customer_id == customer_id]
+
+# Application Services - Orchestrate domain operations
+class OrderApplicationService:
+    def __init__(self, order_repository: OrderRepository, 
+                 pricing_service: OrderPricingService,
+                 event_publisher: 'EventPublisher'):
+        self.order_repository = order_repository
+        self.pricing_service = pricing_service
+        self.event_publisher = event_publisher
+    
+    def create_order(self, command: 'CreateOrderCommand') -> str:
+        """Create new order from command"""
+        order_id = str(uuid.uuid4())
+        order = Order(order_id, command.customer_id)
+        
+        # Add items
+        for item_data in command.items:
+            order.add_item(
+                item_data.product_id,
+                item_data.quantity,
+                Money(item_data.unit_price, "USD")
+            )
+        
+        # Save order
+        self.order_repository.save(order)
+        
+        # Publish domain events
+        events = order.get_domain_events()
+        for event in events:
+            self.event_publisher.publish(event)
+        
+        return order_id
+    
+    def confirm_order(self, order_id: str) -> None:
+        """Confirm existing order"""
+        order = self.order_repository.find_by_id(order_id)
+        if not order:
+            raise ApplicationException(f"Order {order_id} not found")
+        
+        # Domain operation
+        order.confirm()
+        
+        # Persist changes
+        self.order_repository.save(order)
+        
+        # Publish events
+        events = order.get_domain_events()
+        for event in events:
+            self.event_publisher.publish(event)
+```
+
+#### Architectural Decision Framework
+
+```python
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+from enum import Enum
+from datetime import datetime
+
+class DecisionStatus(Enum):
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    DEPRECATED = "deprecated"
+    SUPERSEDED = "superseded"
+
+@dataclass
+class ArchitecturalDecision:
+    id: str
+    title: str
+    status: DecisionStatus
+    date: datetime
+    context: str
+    decision: str
+    consequences: List[str]
+    alternatives: List[str]
+    related_decisions: List[str]
+    authors: List[str]
+    
+class ArchitecturalDecisionRecord:
+    """ADR (Architecture Decision Record) implementation"""
+    
+    def __init__(self):
+        self.decisions: Dict[str, ArchitecturalDecision] = {}
+        self.decision_counter = 0
+    
+    def propose_decision(self, title: str, context: str, 
+                        alternatives: List[str], 
+                        recommended_decision: str,
+                        consequences: List[str],
+                        authors: List[str]) -> str:
+        """Propose new architectural decision"""
+        self.decision_counter += 1
+        decision_id = f"ADR-{self.decision_counter:04d}"
+        
+        decision = ArchitecturalDecision(
+            id=decision_id,
+            title=title,
+            status=DecisionStatus.PROPOSED,
+            date=datetime.now(),
+            context=context,
+            decision=recommended_decision,
+            consequences=consequences,
+            alternatives=alternatives,
+            related_decisions=[],
+            authors=authors
+        )
+        
+        self.decisions[decision_id] = decision
+        return decision_id
+    
+    def accept_decision(self, decision_id: str) -> None:
+        """Accept proposed decision"""
+        if decision_id not in self.decisions:
+            raise ValueError(f"Decision {decision_id} not found")
+        
+        decision = self.decisions[decision_id]
+        if decision.status != DecisionStatus.PROPOSED:
+            raise ValueError(f"Can only accept proposed decisions")
+        
+        decision.status = DecisionStatus.ACCEPTED
+    
+    def supersede_decision(self, old_decision_id: str, 
+                          new_decision_id: str) -> None:
+        """Mark decision as superseded by another"""
+        if old_decision_id not in self.decisions:
+            raise ValueError(f"Decision {old_decision_id} not found")
+        
+        old_decision = self.decisions[old_decision_id]
+        old_decision.status = DecisionStatus.SUPERSEDED
+        
+        if new_decision_id in self.decisions:
+            new_decision = self.decisions[new_decision_id]
+            new_decision.related_decisions.append(old_decision_id)
+    
+    def generate_adr_document(self, decision_id: str) -> str:
+        """Generate ADR document in markdown format"""
+        decision = self.decisions.get(decision_id)
+        if not decision:
+            raise ValueError(f"Decision {decision_id} not found")
+        
+        return f"""# {decision.id}: {decision.title}
+
+## Status
+{decision.status.value.upper()}
+
+## Context
+{decision.context}
+
+## Decision
+{decision.decision}
+
+## Alternatives Considered
+{chr(10).join(f"- {alt}" for alt in decision.alternatives)}
+
+## Consequences
+{chr(10).join(f"- {cons}" for cons in decision.consequences)}
+
+## Related Decisions
+{chr(10).join(f"- {rel}" for rel in decision.related_decisions)}
+
+---
+**Authors:** {", ".join(decision.authors)}
+**Date:** {decision.date.strftime("%Y-%m-%d")}
+"""
+
+class DecisionGovernanceFramework:
+    """Framework for architectural decision governance"""
+    
+    def __init__(self):
+        self.decision_criteria = {
+            'performance': {'weight': 0.25, 'threshold': 7.0},
+            'maintainability': {'weight': 0.20, 'threshold': 6.0},
+            'scalability': {'weight': 0.20, 'threshold': 6.0},
+            'security': {'weight': 0.15, 'threshold': 8.0},
+            'cost': {'weight': 0.10, 'threshold': 6.0},
+            'team_expertise': {'weight': 0.10, 'threshold': 5.0}
+        }
+        self.reviewers = []
+        self.approval_thresholds = {
+            'low_impact': 1,    # 1 reviewer
+            'medium_impact': 2, # 2 reviewers
+            'high_impact': 3    # 3 reviewers
+        }
+    
+    def evaluate_decision(self, decision_options: List[Dict]) -> Dict:
+        """Evaluate decision options using multi-criteria analysis"""
+        evaluation_results = []
+        
+        for option in decision_options:
+            scores = option.get('scores', {})
+            weighted_score = 0
+            
+            for criterion, config in self.decision_criteria.items():
+                score = scores.get(criterion, 0)
+                weight = config['weight']
+                weighted_score += score * weight
+            
+            # Check threshold compliance
+            threshold_violations = []
+            for criterion, config in self.decision_criteria.items():
+                score = scores.get(criterion, 0)
+                if score < config['threshold']:
+                    threshold_violations.append(criterion)
+            
+            evaluation_results.append({
+                'option': option['name'],
+                'weighted_score': weighted_score,
+                'threshold_violations': threshold_violations,
+                'compliant': len(threshold_violations) == 0
+            })
+        
+        # Sort by weighted score
+        evaluation_results.sort(key=lambda x: x['weighted_score'], reverse=True)
+        
+        return {
+            'recommendations': evaluation_results,
+            'best_option': evaluation_results[0] if evaluation_results else None
+        }
+    
+    def calculate_decision_impact(self, decision: ArchitecturalDecision) -> str:
+        """Calculate decision impact level"""
+        impact_factors = [
+            'affects multiple systems',
+            'requires significant investment',
+            'changes core architecture',
+            'impacts security posture',
+            'affects team structure'
+        ]
+        
+        # Count impact factors mentioned in context/consequences
+        decision_text = f"{decision.context} {' '.join(decision.consequences)}".lower()
+        impact_count = sum(1 for factor in impact_factors if factor in decision_text)
+        
+        if impact_count >= 3:
+            return 'high_impact'
+        elif impact_count >= 1:
+            return 'medium_impact'
+        else:
+            return 'low_impact'
+```
+
+#### Quality Attribute Scenarios (QAS)
+
+```python
+from typing import List, Dict, Any
+from dataclasses import dataclass
+from enum import Enum
+
+class QualityAttribute(Enum):
+    PERFORMANCE = "performance"
+    AVAILABILITY = "availability"
+    SECURITY = "security"
+    USABILITY = "usability"
+    MODIFIABILITY = "modifiability"
+    TESTABILITY = "testability"
+    INTEROPERABILITY = "interoperability"
+
+@dataclass
+class QualityScenario:
+    id: str
+    quality_attribute: QualityAttribute
+    source: str           # Source of stimulus
+    stimulus: str         # What triggers the scenario
+    artifact: str         # What is affected
+    environment: str      # Under what conditions
+    response: str         # What the system should do
+    response_measure: str # How we measure success
+
+class QualityAttributeWorkshop:
+    """QAW (Quality Attribute Workshop) implementation"""
+    
+    def __init__(self):
+        self.scenarios: List[QualityScenario] = []
+        self.prioritized_scenarios: List[tuple] = []
+    
+    def add_scenario(self, scenario: QualityScenario) -> None:
+        """Add quality scenario"""
+        self.scenarios.append(scenario)
+    
+    def prioritize_scenarios(self, stakeholder_votes: Dict[str, int]) -> None:
+        """Prioritize scenarios based on stakeholder voting"""
+        scenario_scores = []
+        
+        for scenario in self.scenarios:
+            score = stakeholder_votes.get(scenario.id, 0)
+            scenario_scores.append((scenario, score))
+        
+        # Sort by score (highest first)
+        self.prioritized_scenarios = sorted(
+            scenario_scores, 
+            key=lambda x: x[1], 
+            reverse=True
+        )
+    
+    def generate_scenario_template(self, quality_attribute: QualityAttribute) -> str:
+        """Generate scenario template for specific quality attribute"""
+        templates = {
+            QualityAttribute.PERFORMANCE: {
+                'source': 'User/System',
+                'stimulus': 'initiates transactions',
+                'artifact': 'System',
+                'environment': 'under normal/peak load',
+                'response': 'processes transactions',
+                'response_measure': 'within X seconds'
+            },
+            QualityAttribute.AVAILABILITY: {
+                'source': 'Internal/External fault',
+                'stimulus': 'causes system failure',
+                'artifact': 'System/Component',
+                'environment': 'during normal operation',
+                'response': 'continues to operate/recovers',
+                'response_measure': 'within X time with Y% availability'
+            },
+            QualityAttribute.SECURITY: {
+                'source': 'Attacker',
+                'stimulus': 'attempts unauthorized access',
+                'artifact': 'System/Data',
+                'environment': 'during operation',
+                'response': 'detects and prevents access',
+                'response_measure': 'with X% success rate'
+            }
+        }
+        
+        template = templates.get(quality_attribute, {})
+        return f"""
+Source: {template.get('source', '[SOURCE]')}
+Stimulus: {template.get('stimulus', '[STIMULUS]')}
+Artifact: {template.get('artifact', '[ARTIFACT]')}
+Environment: {template.get('environment', '[ENVIRONMENT]')}
+Response: {template.get('response', '[RESPONSE]')}
+Response Measure: {template.get('response_measure', '[RESPONSE_MEASURE]')}
+"""
+
+# Example Quality Scenarios
+performance_scenarios = [
+    QualityScenario(
+        id="PERF-001",
+        quality_attribute=QualityAttribute.PERFORMANCE,
+        source="User",
+        stimulus="initiates search query",
+        artifact="Search Service",
+        environment="under normal load (1000 concurrent users)",
+        response="returns search results",
+        response_measure="within 200ms for 95% of requests"
+    ),
+    QualityScenario(
+        id="PERF-002",
+        quality_attribute=QualityAttribute.PERFORMANCE,
+        source="Batch process",
+        stimulus="processes daily transaction report",
+        artifact="Analytics System",
+        environment="during off-peak hours",
+        response="generates complete report",
+        response_measure="within 30 minutes for 10M transactions"
+    )
+]
+
+availability_scenarios = [
+    QualityScenario(
+        id="AVAIL-001",
+        quality_attribute=QualityAttribute.AVAILABILITY,
+        source="Hardware failure",
+        stimulus="causes database server failure",
+        artifact="Database cluster",
+        environment="during peak business hours",
+        response="switches to backup server and continues operation",
+        response_measure="within 5 seconds with no data loss"
+    ),
+    QualityScenario(
+        id="AVAIL-002",
+        quality_attribute=QualityAttribute.AVAILABILITY,
+        source="Software defect",
+        stimulus="causes application crash",
+        artifact="Web application",
+        environment="during normal operation",
+        response="restarts automatically and logs incident",
+        response_measure="within 30 seconds with 99.9% uptime"
+    )
+]
+```
+
+#### Architecture Evaluation Methods
+
+```python
+class ArchitectureEvaluationMethod:
+    """Base class for architecture evaluation methods"""
+    
+    def __init__(self, name: str):
+        self.name = name
+        self.scenarios: List[QualityScenario] = []
+        self.architectural_views = []
+        self.evaluation_results = {}
+    
+    def evaluate(self, architecture_description: Dict) -> Dict:
+        """Evaluate architecture against quality scenarios"""
+        raise NotImplementedError
+
+class ATAMEvaluation(ArchitectureEvaluationMethod):
+    """ATAM (Architecture Tradeoff Analysis Method) implementation"""
+    
+    def __init__(self):
+        super().__init__("ATAM")
+        self.utility_tree = {}
+        self.sensitivity_points = []
+        self.tradeoff_points = []
+        self.risks = []
+        self.non_risks = []
+    
+    def build_utility_tree(self, quality_attributes: List[QualityAttribute]) -> Dict:
+        """Build utility tree for quality attributes"""
+        utility_tree = {}
+        
+        for qa in quality_attributes:
+            utility_tree[qa.value] = {
+                'importance': 'high',  # Would be determined by stakeholders
+                'scenarios': [],
+                'tactics': []
+            }
+        
+        return utility_tree
+    
+    def identify_sensitivity_points(self, architecture: Dict, 
+                                  scenarios: List[QualityScenario]) -> List[Dict]:
+        """Identify architectural elements that affect quality scenarios"""
+        sensitivity_points = []
+        
+        for scenario in scenarios:
+            # Analyze which architectural elements affect this scenario
+            affected_elements = self._analyze_scenario_impact(scenario, architecture)
+            
+            for element in affected_elements:
+                sensitivity_points.append({
+                    'element': element,
+                    'scenario': scenario.id,
+                    'quality_attribute': scenario.quality_attribute.value,
+                    'sensitivity_reason': f"Changes to {element} directly impact {scenario.response_measure}"
+                })
+        
+        return sensitivity_points
+    
+    def identify_tradeoff_points(self, sensitivity_points: List[Dict]) -> List[Dict]:
+        """Identify points where multiple quality attributes trade off"""
+        tradeoff_points = []
+        
+        # Group sensitivity points by architectural element
+        element_impacts = {}
+        for sp in sensitivity_points:
+            element = sp['element']
+            if element not in element_impacts:
+                element_impacts[element] = []
+            element_impacts[element].append(sp)
+        
+        # Find elements that affect multiple quality attributes
+        for element, impacts in element_impacts.items():
+            quality_attributes = set(impact['quality_attribute'] for impact in impacts)
+            
+            if len(quality_attributes) > 1:
+                tradeoff_points.append({
+                    'element': element,
+                    'affected_qualities': list(quality_attributes),
+                    'tradeoff_description': f"{element} affects {', '.join(quality_attributes)}"
+                })
+        
+        return tradeoff_points
+    
+    def _analyze_scenario_impact(self, scenario: QualityScenario, 
+                               architecture: Dict) -> List[str]:
+        """Analyze which architectural elements are impacted by scenario"""
+        # This would involve detailed architectural analysis
+        # For this example, we'll use simplified logic
+        affected_elements = []
+        
+        if scenario.quality_attribute == QualityAttribute.PERFORMANCE:
+            affected_elements.extend(['Database', 'Caching Layer', 'Load Balancer'])
+        elif scenario.quality_attribute == QualityAttribute.AVAILABILITY:
+            affected_elements.extend(['Redundancy Components', 'Failover Mechanisms'])
+        elif scenario.quality_attribute == QualityAttribute.SECURITY:
+            affected_elements.extend(['Authentication Service', 'Authorization Components'])
+        
+        return affected_elements
+
+class CBAMEvaluation(ArchitectureEvaluationMethod):
+    """CBAM (Cost Benefit Analysis Method) implementation"""
+    
+    def __init__(self):
+        super().__init__("CBAM")
+        self.architectural_strategies = []
+        self.cost_estimates = {}
+        self.benefit_estimates = {}
+    
+    def calculate_roi(self, strategy: Dict) -> float:
+        """Calculate return on investment for architectural strategy"""
+        costs = self.cost_estimates.get(strategy['id'], 0)
+        benefits = self.benefit_estimates.get(strategy['id'], 0)
+        
+        if costs == 0:
+            return float('inf') if benefits > 0 else 0
+        
+        return (benefits - costs) / costs
+    
+    def prioritize_strategies(self, strategies: List[Dict]) -> List[Dict]:
+        """Prioritize architectural strategies by ROI"""
+        strategy_roi = []
+        
+        for strategy in strategies:
+            roi = self.calculate_roi(strategy)
+            strategy_roi.append({
+                'strategy': strategy,
+                'roi': roi,
+                'cost': self.cost_estimates.get(strategy['id'], 0),
+                'benefit': self.benefit_estimates.get(strategy['id'], 0)
+            })
+        
+        # Sort by ROI (highest first)
+        return sorted(strategy_roi, key=lambda x: x['roi'], reverse=True)
+```
+
+This comprehensive coverage of Architecture Fundamentals provides the foundation for understanding all other architectural concepts. Each principle is explained with concrete examples and real-world applications, demonstrating how these fundamentals apply in practice through advanced domain-driven design, architectural decision frameworks, quality attribute workshops, and systematic evaluation methods.

@@ -104,6 +104,35 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
   aquasec/trivy:latest image myapp:latest
 ```
 
+### Running Containers Securely
+
+```bash
+# Run with security constraints
+docker run \
+  --user 1001:1001 \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop=ALL \
+  --cap-add=NET_BIND_SERVICE \
+  --security-opt=no-new-privileges:true \
+  --security-opt=seccomp:default \
+  myapp:latest
+
+# Limit resources
+docker run \
+  --memory=512m \
+  --memory-swap=512m \
+  --cpus="1.5" \
+  --pids-limit=100 \
+  --ulimit nofile=1024:1024 \
+  myapp:latest
+
+# Use custom seccomp profile
+docker run \
+  --security-opt seccomp=./security/seccomp-profile.json \
+  myapp:latest
+```
+
 ### Secrets Management
 
 ```bash

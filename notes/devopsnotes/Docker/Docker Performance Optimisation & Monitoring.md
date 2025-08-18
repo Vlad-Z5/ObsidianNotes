@@ -110,3 +110,87 @@ docker run -d \
 "max-concurrent-downloads": 3,
 "max-concurrent-uploads": 5
 }
+```
+
+### Container Monitoring and Debugging
+
+#### Logging and Log Management
+
+```bash
+# Docker logs commands
+docker logs container_name              # View logs
+docker logs -f container_name           # Follow logs
+docker logs --tail 100 container_name   # Last 100 lines
+docker logs --since "2024-01-01T00:00:00" container_name
+docker logs --until "1h" container_name # Logs until 1 hour ago
+
+# Logging drivers configuration
+docker run --log-driver json-file \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
+  myapp:latest
+
+# Centralized logging with fluentd
+docker run --log-driver fluentd \
+  --log-opt fluentd-address=localhost:24224 \
+  --log-opt tag="myapp.{{.Name}}" \
+  myapp:latest
+
+# Syslog logging
+docker run --log-driver syslog \
+  --log-opt syslog-address=tcp://192.168.1.10:514 \
+  myapp:latest
+```
+
+#### Container Inspection and Debugging
+
+```bash
+# Container inspection
+docker inspect container_name           # Full container details
+docker inspect --format='{{.State.Status}}' container_name
+docker inspect --format='{{.NetworkSettings.IPAddress}}' container_name
+docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' container_name
+
+# Runtime statistics
+docker stats                           # All containers
+docker stats container_name           # Specific container
+docker stats --no-stream             # One-time stats
+
+# Container events
+docker events                         # All events
+docker events --filter container=myapp
+docker events --filter event=start
+docker events --since="2024-01-01T00:00:00"
+
+# Process information
+docker top container_name             # Running processes
+docker exec container_name ps aux     # Detailed process list
+
+# File system changes
+docker diff container_name            # Changed files since start
+docker cp container_name:/app/config.yml ./config.yml
+docker cp ./newfile.txt container_name:/app/
+```
+
+#### Health Monitoring
+
+```bash
+# Health check status
+docker inspect --format='{{.State.Health.Status}}' container_name
+docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' container_name
+
+# Container lifecycle events
+docker events --filter container=myapp --filter event=health_status
+
+# Custom health monitoring script
+#!/bin/bash
+while true; do
+    health=$(docker inspect --format='{{.State.Health.Status}}' myapp)
+    if [ "$health" != "healthy" ]; then
+        echo "Container unhealthy: $health"
+        # Send alert or restart container
+        docker restart myapp
+    fi
+    sleep 30
+done
+```

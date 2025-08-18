@@ -15,6 +15,101 @@ docker rmi $(docker images -q) # Remove all images
 docker image prune -a # Remove unused images
 ```
 
+### Image Management with Advanced Options
+
+```bash
+# Build with advanced options
+docker build -t app:v1.0 . --no-cache # Skip cache
+docker build -t app:v1.0 . --target=builder # Build specific stage
+docker build -t app:v1.0 . --build-arg NODE_ENV=prod # Pass build arguments
+docker build -t app:v1.0 . --platform=linux/amd64 # Target platform
+docker build -t app:v1.0 . --progress=plain # Detailed output
+
+# BuildKit features (enable with: export DOCKER_BUILDKIT=1)
+docker build -t app . --secret id=mysecret,src=./secret.txt
+docker build -t app . --ssh default # SSH agent forwarding
+
+# Registry Operations with authentication
+echo $PASSWORD | docker login -u $USERNAME --password-stdin registry.com
+docker pull nginx:alpine
+docker tag nginx:alpine myregistry.com/nginx:v1.0
+docker push myregistry.com/nginx:v1.0
+docker manifest inspect nginx:alpine # Image manifest details
+
+# Image Analysis
+docker images --digests # Show image digests
+docker history app:v1.0 --no-trunc # Full layer history
+docker inspect nginx --format='{{.Config.Env}}' # Extract specific data
+docker diff container_name # Show container changes
+docker export container_name | docker import - newimage # Container to image
+```
+
+### Image Tagging Strategies
+
+```bash
+# Semantic versioning
+docker tag myapp:latest myapp:1.2.3
+docker tag myapp:latest myapp:1.2
+docker tag myapp:latest myapp:1
+
+# Git-based tagging
+docker tag myapp:latest myapp:$(git rev-parse --short HEAD)
+docker tag myapp:latest myapp:$(git describe --tags --always)
+
+# Environment-based tagging
+docker tag myapp:latest myapp:dev-$(date +%Y%m%d)
+docker tag myapp:latest myapp:staging-v1.2.3
+docker tag myapp:latest myapp:prod-$(git rev-parse --short HEAD)
+
+# CI/CD pipeline tagging
+docker tag myapp:latest myapp:build-${BUILD_NUMBER}
+docker tag myapp:latest myapp:pr-${PULL_REQUEST_ID}
+docker tag myapp:latest myapp:branch-${BRANCH_NAME//\//-}
+
+# DevOps tagging script
+#!/bin/bash
+VERSION=$(git describe --tags --always)
+COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date +%Y%m%d-%H%M%S)
+
+docker build -t myapp:latest .
+docker tag myapp:latest myapp:${VERSION}
+docker tag myapp:latest myapp:${COMMIT}
+docker tag myapp:latest myapp:${DATE}
+
+if [[ "${BRANCH_NAME}" == "main" ]]; then
+    docker tag myapp:latest myapp:stable
+fi
+```
+
+### Image Size Reduction Techniques
+
+```bash
+# Layer consolidation examples
+# ❌ Bad - creates multiple layers
+docker build -t bad-example - <<EOF
+FROM ubuntu:20.04
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get install -y wget
+RUN rm -rf /var/lib/apt/lists/*
+EOF
+
+# ✅ Good - single layer
+docker build -t good-example - <<EOF
+FROM ubuntu:20.04
+RUN apt-get update && \
+    apt-get install -y curl wget && \
+    rm -rf /var/lib/apt/lists/*
+EOF
+
+# Base image comparison
+docker images alpine:latest    # ~5MB
+docker images ubuntu:20.04    # ~72MB
+docker images node:18-alpine  # ~110MB
+docker images node:18         # ~993MB
+```
+
 ### Basic Container Management
 
 ```bash

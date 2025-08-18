@@ -1,3 +1,34 @@
+# AWS EC2 (Elastic Compute Cloud)
+
+> **Service Type:** Core Compute | **Tier:** Essential DevOps | **Global/Regional:** Regional
+
+## Overview
+
+Amazon EC2 provides scalable virtual servers in the cloud, forming the backbone of most AWS deployments. It offers complete control over computing resources with pay-as-you-use pricing.
+
+## DevOps Use Cases
+
+### Infrastructure Hosting
+- **Web servers** running applications (Apache, Nginx, IIS)
+- **Application servers** (Tomcat, Node.js, .NET)
+- **Database servers** when managed services aren't suitable
+- **CI/CD build agents** for compilation and testing
+
+### Container Orchestration
+- **ECS container instances** running Docker workloads
+- **EKS worker nodes** for Kubernetes clusters
+- **Self-managed Docker hosts** with custom orchestration
+
+### Development & Testing
+- **Development environments** with on-demand provisioning
+- **Testing infrastructure** that scales with demand
+- **Performance testing** with consistent baseline environments
+
+### Automation & Tooling
+- **Bastion hosts** for secure administrative access
+- **NAT instances** for custom network routing (where NAT Gateway insufficient)
+- **Monitoring servers** running Prometheus, Grafana, ELK stack
+
 ## **Main EC2 Components**
 
 - **AMI (Amazon Machine Image):** Template containing OS, application software, and configuration. Region specific, can be copied across regions
@@ -318,6 +349,309 @@
 - **Automated AMI Creation:** Build and maintain golden images
 - **Security Patching:** Automated security updates
 - **Compliance:** Ensure images meet organizational standards
+
+## **Practical CLI Examples**
+
+### **Instance Management**
+
+```bash
+# Launch instance with user data
+aws ec2 run-instances \
+  --image-id ami-0abcdef1234567890 \
+  --instance-type t3.micro \
+  --key-name my-key-pair \
+  --security-group-ids sg-123abc12 \
+  --subnet-id subnet-6e7f829e \
+  --user-data file://startup-script.sh \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=WebServer},{Key=Environment,Value=Production}]'
+
+# Stop and start instance
+aws ec2 stop-instances --instance-ids i-1234567890abcdef0
+aws ec2 start-instances --instance-ids i-1234567890abcdef0
+
+# Create AMI from instance
+aws ec2 create-image \
+  --instance-id i-1234567890abcdef0 \
+  --name "WebServer-$(date +%Y%m%d)" \
+  --description "Production web server AMI" \
+  --no-reboot
+
+# Modify instance type (requires stop)
+aws ec2 stop-instances --instance-ids i-1234567890abcdef0
+aws ec2 modify-instance-attribute \
+  --instance-id i-1234567890abcdef0 \
+  --instance-type Value=t3.medium
+aws ec2 start-instances --instance-ids i-1234567890abcdef0
+```
+
+### **Security Group Management**
+
+```bash
+# Create security group
+aws ec2 create-security-group \
+  --group-name web-servers \
+  --description "Security group for web servers" \
+  --vpc-id vpc-12345678
+
+# Add HTTP/HTTPS rules
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-123abc12 \
+  --protocol tcp \
+  --port 80 \
+  --cidr 0.0.0.0/0
+
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-123abc12 \
+  --protocol tcp \
+  --port 443 \
+  --cidr 0.0.0.0/0
+
+# Add SSH from bastion host security group
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-123abc12 \
+  --protocol tcp \
+  --port 22 \
+  --source-group sg-bastion123
+```
+
+### **Auto Scaling Examples**
+
+```bash
+# Create launch template
+aws ec2 create-launch-template \
+  --launch-template-name WebServerTemplate \
+  --launch-template-data '{
+    "ImageId":"ami-0abcdef1234567890",
+    "InstanceType":"t3.micro",
+    "KeyName":"my-key-pair",
+    "SecurityGroupIds":["sg-123abc12"],
+    "UserData":"IyEvYmluL2Jhc2gKZWNobyAiSGVsbG8gV29ybGQi"
+  }'
+
+# Create Auto Scaling Group
+aws autoscaling create-auto-scaling-group \
+  --auto-scaling-group-name WebServerASG \
+  --launch-template LaunchTemplateName=WebServerTemplate,Version=1 \
+  --min-size 2 \
+  --max-size 10 \
+  --desired-capacity 3 \
+  --vpc-zone-identifier "subnet-12345678,subnet-87654321" \
+  --target-group-arns arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/WebServerTG/1234567890123456
+
+# Create scaling policies
+aws autoscaling put-scaling-policy \
+  --auto-scaling-group-name WebServerASG \
+  --policy-name ScaleUpPolicy \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-configuration '{
+    "TargetValue": 70.0,
+    "PredefinedMetricSpecification": {
+      "PredefinedMetricType": "ASGAverageCPUUtilization"
+    }
+  }'
+```
+
+### **Instance Metadata Usage**
+
+```bash
+# Get instance metadata (run from EC2 instance)
+curl http://169.254.169.254/latest/meta-data/instance-id
+curl http://169.254.169.254/latest/meta-data/public-ipv4
+curl http://169.254.169.254/latest/meta-data/placement/availability-zone
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
+
+# Get user data
+curl http://169.254.169.254/latest/user-data
+
+# Instance identity document
+curl http://169.254.169.254/latest/dynamic/instance-identity/document
+```
+
+### **EBS Volume Operations**
+
+```bash
+# Create and attach EBS volume
+aws ec2 create-volume \
+  --size 100 \
+  --volume-type gp3 \
+  --availability-zone us-west-2a \
+  --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=DataVolume}]'
+
+aws ec2 attach-volume \
+  --volume-id vol-1234567890abcdef0 \
+  --instance-id i-1234567890abcdef0 \
+  --device /dev/xvdf
+
+# Create snapshot
+aws ec2 create-snapshot \
+  --volume-id vol-1234567890abcdef0 \
+  --description "Daily backup $(date +%Y-%m-%d)"
+
+# Copy snapshot to another region
+aws ec2 copy-snapshot \
+  --source-region us-west-2 \
+  --source-snapshot-id snap-1234567890abcdef0 \
+  --destination-region us-east-1 \
+  --description "DR backup $(date +%Y-%m-%d)"
+```
+
+## **DevOps Automation Scripts**
+
+### **Instance Health Check Script**
+
+```bash
+#!/bin/bash
+# health-check.sh - Monitor EC2 instance health
+
+INSTANCE_ID="i-1234567890abcdef0"
+SNS_TOPIC="arn:aws:sns:us-west-2:123456789012:alerts"
+
+# Check instance status
+STATUS=$(aws ec2 describe-instance-status \
+  --instance-ids $INSTANCE_ID \
+  --query 'InstanceStatuses[0].InstanceStatus.Status' \
+  --output text)
+
+if [ "$STATUS" != "ok" ]; then
+    aws sns publish \
+      --topic-arn $SNS_TOPIC \
+      --message "Instance $INSTANCE_ID health check failed: $STATUS"
+    
+    # Attempt to recover
+    aws ec2 reboot-instances --instance-ids $INSTANCE_ID
+fi
+```
+
+### **Automated AMI Creation**
+
+```bash
+#!/bin/bash
+# backup-ami.sh - Create daily AMI backups
+
+INSTANCE_ID="i-1234567890abcdef0"
+AMI_NAME="WebServer-Backup-$(date +%Y%m%d-%H%M)"
+RETENTION_DAYS=7
+
+# Create AMI
+AMI_ID=$(aws ec2 create-image \
+  --instance-id $INSTANCE_ID \
+  --name "$AMI_NAME" \
+  --description "Automated daily backup" \
+  --no-reboot \
+  --query 'ImageId' \
+  --output text)
+
+echo "Created AMI: $AMI_ID"
+
+# Clean up old AMIs
+aws ec2 describe-images \
+  --owners self \
+  --filters "Name=name,Values=WebServer-Backup-*" \
+  --query "Images[?CreationDate<='$(date -d "$RETENTION_DAYS days ago" -Iseconds)'].ImageId" \
+  --output text | xargs -n 1 aws ec2 deregister-image --image-id
+```
+
+### **Auto Scaling Notification Script**
+
+```bash
+#!/bin/bash
+# Handle Auto Scaling lifecycle hooks
+
+INSTANCE_ID=$1
+LIFECYCLE_HOOK_NAME=$2
+AUTO_SCALING_GROUP_NAME=$3
+LIFECYCLE_ACTION_TOKEN=$4
+
+# Perform custom setup/cleanup
+case "$LIFECYCLE_HOOK_NAME" in
+  "launch-hook")
+    # Install monitoring agent, register with load balancer, etc.
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+      -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/config.json -s
+    ;;
+  "terminate-hook")
+    # Drain connections, backup logs, etc.
+    sudo service nginx stop
+    aws logs create-export-task --log-group-name /var/log/nginx --from $(date +%s)000
+    ;;
+esac
+
+# Complete lifecycle action
+aws autoscaling complete-lifecycle-action \
+  --lifecycle-hook-name "$LIFECYCLE_HOOK_NAME" \
+  --auto-scaling-group-name "$AUTO_SCALING_GROUP_NAME" \
+  --instance-id "$INSTANCE_ID" \
+  --lifecycle-action-token "$LIFECYCLE_ACTION_TOKEN" \
+  --lifecycle-action-result CONTINUE
+```
+
+## **Real-World DevOps Scenarios**
+
+### **Blue-Green Deployment**
+
+```bash
+# Blue-Green deployment script
+#!/bin/bash
+
+GREEN_ASG="WebServer-Green-ASG"
+BLUE_ASG="WebServer-Blue-ASG"
+TARGET_GROUP="WebServerTG"
+
+# Scale up green environment
+aws autoscaling update-auto-scaling-group \
+  --auto-scaling-group-name $GREEN_ASG \
+  --desired-capacity 3
+
+# Wait for green instances to be healthy
+while [ $(aws elbv2 describe-target-health \
+  --target-group-arn $TARGET_GROUP \
+  --query 'TargetHealthDescriptions[?TargetHealth.State==`healthy`] | length(@)') -lt 3 ]; do
+  echo "Waiting for green instances to be healthy..."
+  sleep 30
+done
+
+# Switch traffic to green
+aws elbv2 modify-listener \
+  --listener-arn $LISTENER_ARN \
+  --default-actions Type=forward,TargetGroupArn=$GREEN_TARGET_GROUP
+
+# Scale down blue environment
+aws autoscaling update-auto-scaling-group \
+  --auto-scaling-group-name $BLUE_ASG \
+  --desired-capacity 0
+```
+
+### **CI/CD Integration**
+
+```bash
+# Deploy script for CI/CD pipeline
+#!/bin/bash
+
+APP_VERSION=$1
+DEPLOYMENT_GROUP="WebServerDeployment"
+
+# Create deployment
+DEPLOYMENT_ID=$(aws deploy create-deployment \
+  --application-name MyWebApp \
+  --deployment-group-name $DEPLOYMENT_GROUP \
+  --s3-location bucket=my-deployments,key=app-$APP_VERSION.zip,bundleType=zip \
+  --query 'deploymentId' \
+  --output text)
+
+echo "Deployment ID: $DEPLOYMENT_ID"
+
+# Monitor deployment
+aws deploy wait deployment-successful --deployment-id $DEPLOYMENT_ID
+
+if [ $? -eq 0 ]; then
+  echo "Deployment successful"
+  # Update load balancer tags, send notifications, etc.
+else
+  echo "Deployment failed"
+  # Rollback, send alerts, etc.
+  aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled
+fi
+```
 
 ## **Miscellaneous Tips**
 
