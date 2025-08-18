@@ -601,3 +601,1060 @@ for stack in $STACKS; do
     fi
 done
 ```
+
+## Advanced CloudFormation Patterns
+
+### Enterprise-Grade Infrastructure Templates
+
+#### Multi-Tier Application Stack with Auto Scaling
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Enterprise multi-tier application with advanced features'
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+    Description: Target environment for deployment
+  
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Master password for RDS database
+    ConstraintDescription: Must be at least 8 characters
+  
+  ApplicationVersion:
+    Type: String
+    Default: 'latest'
+    Description: Application version to deploy
+    
+  EnableMultiAZ:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Enable Multi-AZ deployment for production
+
+Mappings:
+  EnvironmentMap:
+    dev:
+      InstanceType: t3.micro
+      MinCapacity: 1
+      MaxCapacity: 3
+      DBInstanceClass: db.t3.micro
+      DBAllocatedStorage: 20
+    staging:
+      InstanceType: t3.small
+      MinCapacity: 2
+      MaxCapacity: 6
+      DBInstanceClass: db.t3.small
+      DBAllocatedStorage: 50
+    prod:
+      InstanceType: m5.large
+      MinCapacity: 3
+      MaxCapacity: 12
+      DBInstanceClass: db.r5.large
+      DBAllocatedStorage: 100
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, 'prod']
+  EnableBackups: !Or [!Equals [!Ref Environment, 'staging'], !Condition IsProduction]
+  EnableEncryption: !Condition IsProduction
+
+Resources:
+  # VPC and Networking (Reference: Use modular approach)
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/cloudformation-templates/vpc-template.yaml
+      Parameters:
+        EnvironmentName: !Ref Environment
+        VpcCIDR: !If 
+          - IsProduction
+          - '10.0.0.0/16'
+          - '10.192.0.0/16'
+
+  # Application Load Balancer Security Group
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Application Load Balancer
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP traffic from internet
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS traffic from internet
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: All outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-ALB-SecurityGroup'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Web Server Security Group
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web servers
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: HTTP from ALB
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: HTTPS from ALB
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+          Description: SSH from bastion host
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-WebServer-SecurityGroup'
+
+  # Database Security Group
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS database
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref WebServerSecurityGroup
+          Description: MySQL from web servers
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-Database-SecurityGroup'
+
+  # Bastion Host Security Group
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for bastion host
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # Restrict this to your IP in production
+          Description: SSH access for administration
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-Bastion-SecurityGroup'
+
+  # IAM Role for EC2 Instances
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ApplicationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub '${ApplicationBucket}/*'
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref DatabaseSecret
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # Database Secret in AWS Secrets Manager
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${Environment}/database/credentials'
+      Description: Database credentials for application
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        GenerateStringKey: password
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # RDS Subnet Group
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS database
+      SubnetIds:
+        - !GetAtt VPCStack.Outputs.PrivateSubnet1
+        - !GetAtt VPCStack.Outputs.PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-database-subnet-group'
+
+  # RDS Database Instance
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: !If [IsProduction, 'Snapshot', 'Delete']
+    Properties:
+      DBInstanceIdentifier: !Sub '${Environment}-application-db'
+      DBInstanceClass: !FindInMap [EnvironmentMap, !Ref Environment, DBInstanceClass]
+      Engine: mysql
+      EngineVersion: '8.0.35'
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
+      AllocatedStorage: !FindInMap [EnvironmentMap, !Ref Environment, DBAllocatedStorage]
+      StorageType: gp3
+      StorageEncrypted: !If [EnableEncryption, true, false]
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      BackupRetentionPeriod: !If [EnableBackups, 7, 0]
+      MultiAZ: !If [IsProduction, true, false]
+      DeletionProtection: !If [IsProduction, true, false]
+      EnablePerformanceInsights: !If [IsProduction, true, false]
+      PerformanceInsightsRetentionPeriod: !If [IsProduction, 7, !Ref 'AWS::NoValue']
+      MonitoringInterval: !If [IsProduction, 60, 0]
+      MonitoringRoleArn: !If 
+        - IsProduction
+        - !GetAtt RDSEnhancedMonitoringRole.Arn
+        - !Ref 'AWS::NoValue'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-application-database'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # RDS Enhanced Monitoring Role (Production only)
+  RDSEnhancedMonitoringRole:
+    Type: AWS::IAM::Role
+    Condition: IsProduction
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: monitoring.rds.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+
+  # S3 Bucket for Application Assets
+  ApplicationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-application-assets-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: !If [IsProduction, 'Enabled', 'Suspended']
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: ArchiveOldObjects
+            Status: Enabled
+            TransitionInDays: 30
+            StorageClass: STANDARD_IA
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref ApplicationLogGroup
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Log Group
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/application/${Environment}'
+      RetentionInDays: !If [IsProduction, 30, 7]
+
+  # Launch Template for EC2 Instances
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${Environment}-web-server-template'
+      LaunchTemplateData:
+        ImageId: ami-0abcdef1234567890  # Update with latest AMI
+        InstanceType: !FindInMap [EnvironmentMap, !Ref Environment, InstanceType]
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref WebServerSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd mysql-client cloudwatch-agent
+            
+            # Install application
+            cd /var/www/html
+            aws s3 cp s3://${ApplicationBucket}/app-${ApplicationVersion}.zip .
+            unzip app-${ApplicationVersion}.zip
+            
+            # Configure CloudWatch agent
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
+            {
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {
+                        "file_path": "/var/log/httpd/access_log",
+                        "log_group_name": "${ApplicationLogGroup}",
+                        "log_stream_name": "{instance_id}/httpd/access"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metrics": {
+                "namespace": "CWAgent",
+                "metrics_collected": {
+                  "cpu": {
+                    "measurement": ["cpu_usage_idle", "cpu_usage_iowait", "cpu_usage_user", "cpu_usage_system"],
+                    "metrics_collection_interval": 60
+                  },
+                  "disk": {
+                    "measurement": ["used_percent"],
+                    "metrics_collection_interval": 60,
+                    "resources": ["*"]
+                  },
+                  "mem": {
+                    "measurement": ["mem_used_percent"],
+                    "metrics_collection_interval": 60
+                  }
+                }
+              }
+            }
+            EOF
+            
+            # Start services
+            systemctl start httpd
+            systemctl enable httpd
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${Environment}-web-server'
+              - Key: Environment
+                Value: !Ref Environment
+              - Key: Application
+                Value: WebApplication
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Environment}-application-alb'
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !GetAtt VPCStack.Outputs.PublicSubnet1
+        - !GetAtt VPCStack.Outputs.PublicSubnet2
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+        - Key: access_logs.s3.enabled
+          Value: !If [IsProduction, 'true', 'false']
+        - Key: access_logs.s3.bucket
+          Value: !If [IsProduction, !Ref ALBLogsBucket, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-application-alb'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Target Group for Auto Scaling Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-web-servers'
+      Port: 80
+      Protocol: HTTP
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '300'
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: '86400'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ALB Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${Environment}-web-servers-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: !FindInMap [EnvironmentMap, !Ref Environment, MinCapacity]
+      MaxSize: !FindInMap [EnvironmentMap, !Ref Environment, MaxCapacity]
+      DesiredCapacity: !FindInMap [EnvironmentMap, !Ref Environment, MinCapacity]
+      VPCZoneIdentifier:
+        - !GetAtt VPCStack.Outputs.PrivateSubnet1
+        - !GetAtt VPCStack.Outputs.PrivateSubnet2
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      DefaultCooldown: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-web-server'
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 2
+        PauseTime: PT5M
+        WaitOnResourceSignals: false
+
+  # Auto Scaling Policies
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: 300
+      ScalingAdjustment: 2
+      PolicyType: SimpleScaling
+
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: 300
+      ScalingAdjustment: -1
+      PolicyType: SimpleScaling
+
+  # CloudWatch Alarms
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-HighCPU'
+      AlarmDescription: Alarm when CPU exceeds 70%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - !Ref ScaleUpPolicy
+        - !Ref SNSTopic
+
+  LowCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-LowCPU'
+      AlarmDescription: Alarm when CPU falls below 30%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 30
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - !Ref ScaleDownPolicy
+
+  # SNS Topic for Notifications
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${Environment}-application-alerts'
+      DisplayName: !Sub '${Environment} Application Alerts'
+
+  # ALB Access Logs Bucket (Production only)
+  ALBLogsBucket:
+    Type: AWS::S3::Bucket
+    Condition: IsProduction
+    Properties:
+      BucketName: !Sub '${Environment}-alb-logs-${AWS::AccountId}'
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # CloudWatch Dashboard
+  ApplicationDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${Environment}-Application-Dashboard'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0, "y": 0,
+              "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ApplicationLoadBalancer}"],
+                  [".", "TargetResponseTime", ".", "."],
+                  [".", "HTTPCode_Target_2XX_Count", ".", "."],
+                  [".", "HTTPCode_Target_4XX_Count", ".", "."],
+                  [".", "HTTPCode_Target_5XX_Count", ".", "."]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "Application Load Balancer Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 0,
+              "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${AutoScalingGroup}"],
+                  ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "."],
+                  [".", "GroupInServiceInstances", ".", "."]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "Auto Scaling Group Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 6,
+              "width": 24, "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${DatabaseInstance}"],
+                  [".", "DatabaseConnections", ".", "."],
+                  [".", "ReadLatency", ".", "."],
+                  [".", "WriteLatency", ".", "."]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "RDS Database Metrics"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${Environment}-ALB-DNS'
+
+  DatabaseEndpoint:
+    Description: RDS Database endpoint
+    Value: !GetAtt DatabaseInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${Environment}-DB-Endpoint'
+
+  ApplicationBucketName:
+    Description: S3 bucket for application assets
+    Value: !Ref ApplicationBucket
+    Export:
+      Name: !Sub '${Environment}-App-Bucket'
+
+  AutoScalingGroupName:
+    Description: Auto Scaling Group name
+    Value: !Ref AutoScalingGroup
+    Export:
+      Name: !Sub '${Environment}-ASG-Name'
+
+  DatabaseSecretArn:
+    Description: ARN of the database credentials secret
+    Value: !Ref DatabaseSecret
+    Export:
+      Name: !Sub '${Environment}-DB-Secret-ARN'
+```
+
+### CloudFormation Custom Resources and Advanced Patterns
+
+#### Custom Resource for Dynamic Configuration
+```yaml
+# Custom resource for external API integration
+CustomConfigurationResource:
+  Type: AWS::CloudFormation::CustomResource
+  Properties:
+    ServiceToken: !GetAtt CustomResourceFunction.Arn
+    Environment: !Ref Environment
+    ConfigurationEndpoint: !Sub 'https://api.example.com/config/${Environment}'
+    
+CustomResourceFunction:
+  Type: AWS::Lambda::Function
+  Properties:
+    FunctionName: !Sub '${Environment}-custom-config-resource'
+    Runtime: python3.9
+    Handler: index.lambda_handler
+    Role: !GetAtt CustomResourceRole.Arn
+    Timeout: 300
+    Code:
+      ZipFile: |
+        import json
+        import boto3
+        import urllib3
+        import cfnresponse
+        
+        def lambda_handler(event, context):
+            print(f"Event: {json.dumps(event)}")
+            
+            try:
+                if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                    # Fetch configuration from external API
+                    http = urllib3.PoolManager()
+                    response = http.request('GET', event['ResourceProperties']['ConfigurationEndpoint'])
+                    
+                    config_data = json.loads(response.data.decode('utf-8'))
+                    
+                    # Store configuration in Parameter Store
+                    ssm = boto3.client('ssm')
+                    ssm.put_parameter(
+                        Name=f"/app/{event['ResourceProperties']['Environment']}/config",
+                        Value=json.dumps(config_data),
+                        Type='String',
+                        Overwrite=True
+                    )
+                    
+                    # Return configuration as attributes
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, config_data)
+                    
+                elif event['RequestType'] == 'Delete':
+                    # Clean up parameter
+                    ssm = boto3.client('ssm')
+                    try:
+                        ssm.delete_parameter(
+                            Name=f"/app/{event['ResourceProperties']['Environment']}/config"
+                        )
+                    except ssm.exceptions.ParameterNotFound:
+                        pass
+                    
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                    
+            except Exception as e:
+                print(f"Error: {str(e)}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, {})
+
+CustomResourceRole:
+  Type: AWS::IAM::Role
+  Properties:
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+    ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Policies:
+      - PolicyName: SSMAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ssm:PutParameter
+                - ssm:DeleteParameter
+                - ssm:GetParameter
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/app/*'
+```
+
+### Infrastructure as Code Best Practices Implementation
+
+#### Template Organization and Modularity
+```yaml
+# Master template using nested stacks
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Master template for enterprise application infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  
+  TemplateBucketName:
+    Type: String
+    Description: S3 bucket containing nested templates
+
+Resources:
+  # Networking Stack
+  NetworkingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucketName}.s3.amazonaws.com/networking.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        
+  # Security Stack
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkingStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucketName}.s3.amazonaws.com/security.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkingStack.Outputs.VpcId
+        
+  # Application Stack
+  ApplicationStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: 
+      - NetworkingStack
+      - SecurityStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucketName}.s3.amazonaws.com/application.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkingStack.Outputs.VpcId
+        DatabaseSubnetGroupName: !GetAtt NetworkingStack.Outputs.DatabaseSubnetGroup
+        WebServerSecurityGroupId: !GetAtt SecurityStack.Outputs.WebServerSecurityGroup
+        DatabaseSecurityGroupId: !GetAtt SecurityStack.Outputs.DatabaseSecurityGroup
+        
+  # Monitoring Stack
+  MonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ApplicationStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucketName}.s3.amazonaws.com/monitoring.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        ApplicationLoadBalancerFullName: !GetAtt ApplicationStack.Outputs.LoadBalancerFullName
+        AutoScalingGroupName: !GetAtt ApplicationStack.Outputs.AutoScalingGroupName
+        DatabaseInstanceId: !GetAtt ApplicationStack.Outputs.DatabaseInstanceId
+
+Outputs:
+  ApplicationEndpoint:
+    Description: Application endpoint URL
+    Value: !Sub 
+      - 'http://${LoadBalancerDNS}'
+      - LoadBalancerDNS: !GetAtt ApplicationStack.Outputs.LoadBalancerDNS
+    Export:
+      Name: !Sub '${Environment}-ApplicationEndpoint'
+```
+
+### Advanced DevOps Automation with CloudFormation
+
+#### CI/CD Pipeline Integration with Blue-Green Deployments
+```python
+#!/usr/bin/env python3
+"""
+Advanced CloudFormation deployment script with blue-green pattern
+"""
+import boto3
+import json
+import time
+import sys
+from datetime import datetime
+
+class BlueGreenDeployment:
+    def __init__(self, environment, region='us-west-2'):
+        self.environment = environment
+        self.region = region
+        self.cfn = boto3.client('cloudformation', region_name=region)
+        self.elb = boto3.client('elbv2', region_name=region)
+        
+    def deploy_stack(self, template_url, parameters, timeout_minutes=30):
+        """
+        Deploy stack with blue-green pattern
+        """
+        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        
+        # Determine current and new stack names
+        blue_stack = f"{self.environment}-blue"
+        green_stack = f"{self.environment}-green"
+        
+        # Check which stack is currently active
+        current_stack, new_stack = self._determine_stacks(blue_stack, green_stack)
+        
+        print(f"Deploying to {new_stack} stack...")
+        
+        # Deploy new stack
+        self._deploy_new_stack(new_stack, template_url, parameters)
+        
+        # Wait for deployment completion
+        self._wait_for_stack_completion(new_stack, timeout_minutes)
+        
+        # Perform health checks
+        if self._health_check_stack(new_stack):
+            print("Health checks passed. Switching traffic...")
+            self._switch_traffic(current_stack, new_stack)
+            
+            # Wait before cleanup
+            time.sleep(300)  # 5 minutes
+            
+            # Cleanup old stack
+            if current_stack:
+                self._cleanup_old_stack(current_stack)
+                
+            print(f"Blue-green deployment completed successfully!")
+            return True
+        else:
+            print("Health checks failed. Rolling back...")
+            self._cleanup_old_stack(new_stack)
+            return False
+    
+    def _determine_stacks(self, blue_stack, green_stack):
+        """Determine which stack is active and which to deploy to"""
+        try:
+            blue_response = self.cfn.describe_stacks(StackName=blue_stack)
+            blue_status = blue_response['Stacks'][0]['StackStatus']
+        except:
+            blue_status = None
+            
+        try:
+            green_response = self.cfn.describe_stacks(StackName=green_stack)
+            green_status = green_response['Stacks'][0]['StackStatus']
+        except:
+            green_status = None
+        
+        # Determine active stack
+        if blue_status in ['CREATE_COMPLETE', 'UPDATE_COMPLETE']:
+            return blue_stack, green_stack
+        elif green_status in ['CREATE_COMPLETE', 'UPDATE_COMPLETE']:
+            return green_stack, blue_stack
+        else:
+            return None, blue_stack
+    
+    def _deploy_new_stack(self, stack_name, template_url, parameters):
+        """Deploy new stack version"""
+        try:
+            response = self.cfn.create_stack(
+                StackName=stack_name,
+                TemplateURL=template_url,
+                Parameters=parameters,
+                Capabilities=['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM'],
+                OnFailure='ROLLBACK',
+                EnableTerminationProtection=True,
+                Tags=[
+                    {'Key': 'Environment', 'Value': self.environment},
+                    {'Key': 'DeploymentType', 'Value': 'BlueGreen'},
+                    {'Key': 'DeploymentTime', 'Value': datetime.now().isoformat()}
+                ]
+            )
+            print(f"Stack creation initiated: {response['StackId']}")
+        except self.cfn.exceptions.AlreadyExistsException:
+            # Update existing stack
+            response = self.cfn.update_stack(
+                StackName=stack_name,
+                TemplateURL=template_url,
+                Parameters=parameters,
+                Capabilities=['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
+            )
+            print(f"Stack update initiated: {response['StackId']}")
+    
+    def _wait_for_stack_completion(self, stack_name, timeout_minutes):
+        """Wait for stack deployment to complete"""
+        print(f"Waiting for {stack_name} deployment...")
+        
+        waiter = self.cfn.get_waiter('stack_create_complete')
+        try:
+            waiter.wait(
+                StackName=stack_name,
+                WaiterConfig={'MaxAttempts': timeout_minutes, 'Delay': 60}
+            )
+        except:
+            # Try update waiter if create waiter fails
+            waiter = self.cfn.get_waiter('stack_update_complete')
+            waiter.wait(
+                StackName=stack_name,
+                WaiterConfig={'MaxAttempts': timeout_minutes, 'Delay': 60}
+            )
+    
+    def _health_check_stack(self, stack_name):
+        """Perform comprehensive health checks on new stack"""
+        print(f"Performing health checks on {stack_name}...")
+        
+        try:
+            # Get stack outputs
+            response = self.cfn.describe_stacks(StackName=stack_name)
+            outputs = {o['OutputKey']: o['OutputValue'] 
+                      for o in response['Stacks'][0].get('Outputs', [])}
+            
+            # Check load balancer health
+            if 'LoadBalancerArn' in outputs:
+                lb_arn = outputs['LoadBalancerArn']
+                return self._check_load_balancer_health(lb_arn)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Health check failed: {str(e)}")
+            return False
+    
+    def _check_load_balancer_health(self, lb_arn):
+        """Check load balancer target health"""
+        try:
+            # Get target groups
+            tg_response = self.elb.describe_target_groups(LoadBalancerArn=lb_arn)
+            
+            for tg in tg_response['TargetGroups']:
+                tg_arn = tg['TargetGroupArn']
+                
+                # Check target health
+                health_response = self.elb.describe_target_health(
+                    TargetGroupArn=tg_arn
+                )
+                
+                healthy_targets = [
+                    t for t in health_response['TargetHealthDescriptions']
+                    if t['TargetHealth']['State'] == 'healthy'
+                ]
+                
+                if len(healthy_targets) == 0:
+                    print(f"No healthy targets in target group: {tg_arn}")
+                    return False
+                    
+            return True
+            
+        except Exception as e:
+            print(f"Load balancer health check failed: {str(e)}")
+            return False
+    
+    def _switch_traffic(self, old_stack, new_stack):
+        """Switch traffic from old stack to new stack"""
+        print(f"Switching traffic from {old_stack} to {new_stack}")
+        
+        # Implementation depends on your traffic switching mechanism
+        # This could involve updating Route 53 records, ALB target groups, etc.
+        
+        # Example: Update Route 53 alias record
+        # route53 = boto3.client('route53')
+        # ... implementation
+        
+        pass
+    
+    def _cleanup_old_stack(self, stack_name):
+        """Clean up old stack after successful deployment"""
+        print(f"Cleaning up old stack: {stack_name}")
+        
+        try:
+            # Disable termination protection
+            self.cfn.update_termination_protection(
+                StackName=stack_name,
+                EnableTerminationProtection=False
+            )
+            
+            # Delete stack
+            self.cfn.delete_stack(StackName=stack_name)
+            
+            # Wait for deletion
+            waiter = self.cfn.get_waiter('stack_delete_complete')
+            waiter.wait(StackName=stack_name)
+            
+            print(f"Stack {stack_name} deleted successfully")
+            
+        except Exception as e:
+            print(f"Failed to cleanup stack {stack_name}: {str(e)}")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: python deploy.py <environment> <template-url> <parameters-file>")
+        sys.exit(1)
+    
+    environment = sys.argv[1]
+    template_url = sys.argv[2]
+    parameters_file = sys.argv[3]
+    
+    # Load parameters
+    with open(parameters_file, 'r') as f:
+        parameters = json.load(f)
+    
+    # Deploy with blue-green pattern
+    deployment = BlueGreenDeployment(environment)
+    success = deployment.deploy_stack(template_url, parameters)
+    
+    sys.exit(0 if success else 1)
+```
+
+This comprehensive enhancement transforms AWS CloudFormation into a production-ready Infrastructure as Code solution with enterprise-grade patterns, advanced automation, and modern DevOps practices.

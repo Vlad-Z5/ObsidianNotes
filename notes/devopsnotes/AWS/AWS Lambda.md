@@ -944,3 +944,1217 @@ echo "Deployment completed successfully!"
 - **Provisioned Concurrency:** Use only when necessary due to additional cost
 - **Request Routing:** Use aliases for traffic shifting and canary deployments
 - **Lifecycle Management:** Clean up unused versions and aliases
+
+## Advanced Serverless Patterns and Enterprise Best Practices
+
+### Event-Driven Architecture Patterns
+
+#### Serverless Microservices with API Gateway
+```yaml
+# SAM template for serverless microservice
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Enterprise serverless microservice with advanced features'
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for Lambda functions
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for Lambda functions
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        POWERTOOLS_SERVICE_NAME: user-service
+        POWERTOOLS_METRICS_NAMESPACE: UserService
+        LOG_LEVEL: !If [IsProduction, INFO, DEBUG]
+    Layers:
+      - !Ref PowertoolsLayer
+    Tracing: Active
+    VpcConfig:
+      SecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+      SubnetIds: !Ref SubnetIds
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, 'prod']
+
+Resources:
+  # Lambda Layer for shared dependencies
+  PowertoolsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub '${AWS::StackName}-powertools'
+      Description: AWS Lambda Powertools for Python
+      ContentUri: layers/powertools/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Delete
+
+  # Security Group for Lambda functions
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Lambda functions
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS outbound
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.0.0/8
+          Description: MySQL database access
+
+  # API Gateway
+  UserServiceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-api'
+      StageName: !Ref Environment
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: >
+          {
+            "requestId": "$context.requestId",
+            "requestTime": "$context.requestTime",
+            "httpMethod": "$context.httpMethod",
+            "path": "$context.path",
+            "status": "$context.status",
+            "responseLength": "$context.responseLength",
+            "responseTime": "$context.responseTime",
+            "userAgent": "$context.identity.userAgent",
+            "sourceIp": "$context.identity.sourceIp"
+          }
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingRateLimit: 100
+          ThrottlingBurstLimit: 200
+          LoggingLevel: INFO
+          DataTraceEnabled: !If [IsProduction, false, true]
+          MetricsEnabled: true
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # CloudWatch Log Group for API Gateway
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AWS::StackName}'
+      RetentionInDays: !If [IsProduction, 30, 7]
+
+  # User CRUD Functions
+  GetUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-get-users'
+      CodeUri: src/users/
+      Handler: get_users.lambda_handler
+      Events:
+        GetUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserServiceApi
+            Path: /users
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-create-user'
+      CodeUri: src/users/
+      Handler: create_user.lambda_handler
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserServiceApi
+            Path: /users
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          USER_CREATED_TOPIC: !Ref UserCreatedTopic
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref UsersTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt UserCreatedTopic.TopicName
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-update-user'
+      CodeUri: src/users/
+      Handler: update_user.lambda_handler
+      Events:
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserServiceApi
+            Path: /users/{user_id}
+            Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref UsersTable
+
+  # Async Event Processing Functions
+  UserCreatedProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-user-created-processor'
+      CodeUri: src/events/
+      Handler: user_created_processor.lambda_handler
+      Events:
+        UserCreatedEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref UserCreatedTopic
+            FilterPolicy:
+              event_type:
+                - user_created
+      Environment:
+        Variables:
+          EMAIL_QUEUE: !Ref EmailQueue
+          AUDIT_TABLE: !Ref AuditTable
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EmailQueue.QueueName
+        - DynamoDBWritePolicy:
+            TableName: !Ref AuditTable
+
+  EmailNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-email-notification'
+      CodeUri: src/notifications/
+      Handler: email_notification.lambda_handler
+      ReservedConcurrencyLimit: 10
+      Events:
+        EmailQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailQueue.Arn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+      Environment:
+        Variables:
+          SES_REGION: !Ref AWS::Region
+          FROM_EMAIL: !Ref FromEmailAddress
+      Policies:
+        - SESCrudPolicy:
+            IdentityName: !Ref FromEmailAddress
+
+  # Scheduled Functions
+  UserMetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-user-metrics'
+      CodeUri: src/metrics/
+      Handler: user_metrics.lambda_handler
+      Timeout: 300
+      MemorySize: 512
+      Events:
+        MetricsSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(1 hour)'
+            Enabled: !If [IsProduction, true, false]
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          METRICS_NAMESPACE: !Sub '${AWS::StackName}/UserService'
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - CloudWatchPutMetricPolicy: {}
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-users'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: created-at-index
+          KeySchema:
+            - AttributeName: created_at
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !If [IsProduction, true, false]
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  AuditTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-audit'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: audit_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: audit_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # SNS Topic for User Events
+  UserCreatedTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${AWS::StackName}-user-created'
+      DisplayName: User Created Events
+      KmsMasterKeyId: alias/aws/sns
+
+  # SQS Queue for Email Processing
+  EmailQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-email-queue'
+      VisibilityTimeoutSeconds: 300
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailDLQ.Arn
+        maxReceiveCount: 3
+      KmsMasterKeyId: alias/aws/sqs
+
+  EmailDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-email-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # Cognito User Pool for Authentication
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AWS::StackName}-users'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+        - AttributeDataType: String
+          Name: name
+          Required: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub '${AWS::StackName}-client'
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+
+Outputs:
+  ApiGatewayEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${UserServiceApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiEndpoint'
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+```
+
+### Advanced Function Implementation with Powertools
+
+#### Enhanced User Service with Observability
+```python
+# src/users/get_users.py - Advanced Lambda with observability
+import json
+import boto3
+from typing import Dict, List, Any, Optional
+from aws_lambda_powertools import Logger, Tracer, Metrics
+from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.utilities.validation import validator
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+from aws_lambda_powertools.metrics import MetricUnit
+from botocore.exceptions import ClientError
+import os
+
+# Initialize Powertools
+logger = Logger()
+tracer = Tracer()
+metrics = Metrics()
+
+# Initialize AWS clients
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(os.environ['USERS_TABLE'])
+
+class UserService:
+    """Enhanced user service with comprehensive error handling and observability"""
+    
+    def __init__(self):
+        self.table = table
+        self.logger = logger
+        
+    @tracer.capture_method
+    def get_users(self, 
+                  limit: Optional[int] = None, 
+                  last_evaluated_key: Optional[str] = None,
+                  filter_email: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Retrieve users with pagination and filtering
+        
+        Args:
+            limit: Maximum number of users to return
+            last_evaluated_key: Pagination token from previous request
+            filter_email: Email filter for searching users
+            
+        Returns:
+            Dictionary containing users and pagination info
+        """
+        try:
+            scan_kwargs = {}
+            
+            # Add limit if specified
+            if limit:
+                scan_kwargs['Limit'] = min(limit, 100)  # Cap at 100
+            
+            # Add pagination if specified
+            if last_evaluated_key:
+                scan_kwargs['ExclusiveStartKey'] = {'user_id': last_evaluated_key}
+            
+            # Add email filter if specified
+            if filter_email:
+                scan_kwargs['FilterExpression'] = 'contains(email, :email)'
+                scan_kwargs['ExpressionAttributeValues'] = {':email': filter_email}
+            
+            # Execute scan
+            self.logger.info("Scanning users table", extra={
+                "scan_kwargs": scan_kwargs
+            })
+            
+            response = self.table.scan(**scan_kwargs)
+            
+            # Format response
+            result = {
+                'users': response.get('Items', []),
+                'count': response.get('Count', 0),
+                'scanned_count': response.get('ScannedCount', 0)
+            }
+            
+            # Add pagination token if more results available
+            if 'LastEvaluatedKey' in response:
+                result['last_evaluated_key'] = response['LastEvaluatedKey']['user_id']
+            
+            # Add custom metrics
+            metrics.add_metric(name="UsersRetrieved", unit=MetricUnit.Count, value=result['count'])
+            metrics.add_metadata(key="filter_email", value=filter_email or "none")
+            
+            self.logger.info("Successfully retrieved users", extra={
+                "user_count": result['count'],
+                "scanned_count": result['scanned_count']
+            })
+            
+            return result
+            
+        except ClientError as e:
+            self.logger.error("DynamoDB error occurred", extra={
+                "error_code": e.response['Error']['Code'],
+                "error_message": e.response['Error']['Message']
+            })
+            metrics.add_metric(name="DatabaseErrors", unit=MetricUnit.Count, value=1)
+            raise
+        except Exception as e:
+            self.logger.error("Unexpected error occurred", extra={
+                "error": str(e)
+            })
+            metrics.add_metric(name="UnexpectedErrors", unit=MetricUnit.Count, value=1)
+            raise
+
+    @tracer.capture_method
+    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a single user by ID
+        
+        Args:
+            user_id: User ID to retrieve
+            
+        Returns:
+            User data or None if not found
+        """
+        try:
+            response = self.table.get_item(Key={'user_id': user_id})
+            
+            if 'Item' in response:
+                self.logger.info("User found", extra={"user_id": user_id})
+                metrics.add_metric(name="UserFound", unit=MetricUnit.Count, value=1)
+                return response['Item']
+            else:
+                self.logger.warning("User not found", extra={"user_id": user_id})
+                metrics.add_metric(name="UserNotFound", unit=MetricUnit.Count, value=1)
+                return None
+                
+        except ClientError as e:
+            self.logger.error("Error retrieving user", extra={
+                "user_id": user_id,
+                "error_code": e.response['Error']['Code'],
+                "error_message": e.response['Error']['Message']
+            })
+            metrics.add_metric(name="DatabaseErrors", unit=MetricUnit.Count, value=1)
+            raise
+
+# Input validation schema
+get_users_schema = {
+    "type": "object",
+    "properties": {
+        "queryStringParameters": {
+            "type": ["object", "null"],
+            "properties": {
+                "limit": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+                "last_evaluated_key": {"type": "string"},
+                "filter_email": {"type": "string", "minLength": 1}
+            }
+        }
+    }
+}
+
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+@validator(inbound_schema=get_users_schema)
+def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
+    """
+    Enhanced Lambda handler for getting users with comprehensive observability
+    
+    Args:
+        event: API Gateway proxy event
+        context: Lambda context
+        
+    Returns:
+        API Gateway proxy response
+    """
+    try:
+        # Parse API Gateway event
+        api_event = APIGatewayProxyEvent(event)
+        
+        # Extract query parameters
+        query_params = api_event.query_string_parameters or {}
+        limit = int(query_params.get('limit', 50))
+        last_evaluated_key = query_params.get('last_evaluated_key')
+        filter_email = query_params.get('filter_email')
+        user_id = api_event.path_parameters.get('user_id') if api_event.path_parameters else None
+        
+        # Add request metadata to logs
+        logger.append_keys(
+            request_id=context.aws_request_id,
+            function_name=context.function_name,
+            remaining_time_ms=context.get_remaining_time_in_millis()
+        )
+        
+        # Initialize service
+        user_service = UserService()
+        
+        # Handle single user request
+        if user_id:
+            logger.info("Retrieving single user", extra={"user_id": user_id})
+            user = user_service.get_user_by_id(user_id)
+            
+            if user:
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'X-Request-ID': context.aws_request_id
+                    },
+                    'body': json.dumps({
+                        'user': user,
+                        'request_id': context.aws_request_id
+                    }, default=str)
+                }
+            else:
+                return {
+                    'statusCode': 404,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'X-Request-ID': context.aws_request_id
+                    },
+                    'body': json.dumps({
+                        'error': 'User not found',
+                        'request_id': context.aws_request_id
+                    })
+                }
+        
+        # Handle list users request
+        logger.info("Retrieving users list", extra={
+            "limit": limit,
+            "filter_email": filter_email,
+            "has_pagination_token": bool(last_evaluated_key)
+        })
+        
+        result = user_service.get_users(
+            limit=limit,
+            last_evaluated_key=last_evaluated_key,
+            filter_email=filter_email
+        )
+        
+        # Add performance metrics
+        response_size = len(json.dumps(result, default=str))
+        metrics.add_metric(name="ResponseSize", unit=MetricUnit.Bytes, value=response_size)
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'X-Request-ID': context.aws_request_id,
+                'X-Total-Count': str(result['count'])
+            },
+            'body': json.dumps({
+                **result,
+                'request_id': context.aws_request_id
+            }, default=str)
+        }
+        
+    except ValueError as e:
+        logger.error("Validation error", extra={"error": str(e)})
+        metrics.add_metric(name="ValidationErrors", unit=MetricUnit.Count, value=1)
+        
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'X-Request-ID': context.aws_request_id
+            },
+            'body': json.dumps({
+                'error': 'Invalid request parameters',
+                'details': str(e),
+                'request_id': context.aws_request_id
+            })
+        }
+    
+    except ClientError as e:
+        logger.error("AWS service error", extra={
+            "error_code": e.response['Error']['Code'],
+            "error_message": e.response['Error']['Message']
+        })
+        metrics.add_metric(name="AWSServiceErrors", unit=MetricUnit.Count, value=1)
+        
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'X-Request-ID': context.aws_request_id
+            },
+            'body': json.dumps({
+                'error': 'Internal service error',
+                'request_id': context.aws_request_id
+            })
+        }
+    
+    except Exception as e:
+        logger.error("Unexpected error", extra={"error": str(e)})
+        metrics.add_metric(name="UnexpectedErrors", unit=MetricUnit.Count, value=1)
+        
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'X-Request-ID': context.aws_request_id
+            },
+            'body': json.dumps({
+                'error': 'Internal server error',
+                'request_id': context.aws_request_id
+            })
+        }
+```
+
+### Advanced Error Handling and Circuit Breaker Pattern
+```python
+# src/utils/circuit_breaker.py - Circuit breaker for external service calls
+import time
+import logging
+from enum import Enum
+from typing import Any, Callable, Optional
+from dataclasses import dataclass
+from functools import wraps
+
+class CircuitState(Enum):
+    CLOSED = "closed"      # Normal operation
+    OPEN = "open"          # Failing, reject calls
+    HALF_OPEN = "half_open"  # Testing if service recovered
+
+@dataclass
+class CircuitBreakerConfig:
+    failure_threshold: int = 5
+    recovery_timeout: int = 60
+    expected_exception: type = Exception
+    fallback_function: Optional[Callable] = None
+
+class CircuitBreaker:
+    """
+    Circuit breaker pattern implementation for Lambda functions
+    """
+    
+    def __init__(self, config: CircuitBreakerConfig):
+        self.config = config
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = CircuitState.CLOSED
+        self.logger = logging.getLogger(__name__)
+    
+    def __call__(self, func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return self._call(func, *args, **kwargs)
+        return wrapper
+    
+    def _call(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Execute function with circuit breaker protection
+        """
+        if self.state == CircuitState.OPEN:
+            if self._should_attempt_reset():
+                self.state = CircuitState.HALF_OPEN
+                self.logger.info("Circuit breaker moving to HALF_OPEN state")
+            else:
+                self.logger.warning("Circuit breaker is OPEN, calling fallback")
+                return self._call_fallback(*args, **kwargs)
+        
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+            
+        except self.config.expected_exception as e:
+            self._on_failure()
+            self.logger.error(f"Circuit breaker detected failure: {str(e)}")
+            
+            if self.state == CircuitState.OPEN:
+                return self._call_fallback(*args, **kwargs)
+            raise
+    
+    def _should_attempt_reset(self) -> bool:
+        """Check if enough time has passed to attempt reset"""
+        if self.last_failure_time is None:
+            return True
+        return time.time() - self.last_failure_time >= self.config.recovery_timeout
+    
+    def _on_success(self):
+        """Handle successful call"""
+        self.failure_count = 0
+        if self.state == CircuitState.HALF_OPEN:
+            self.state = CircuitState.CLOSED
+            self.logger.info("Circuit breaker reset to CLOSED state")
+    
+    def _on_failure(self):
+        """Handle failed call"""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.failure_count >= self.config.failure_threshold:
+            self.state = CircuitState.OPEN
+            self.logger.error(f"Circuit breaker opened after {self.failure_count} failures")
+    
+    def _call_fallback(self, *args, **kwargs) -> Any:
+        """Call fallback function if available"""
+        if self.config.fallback_function:
+            self.logger.info("Calling fallback function")
+            return self.config.fallback_function(*args, **kwargs)
+        else:
+            raise Exception("Service temporarily unavailable")
+
+# Example usage with external API
+def fallback_get_user_profile(user_id: str) -> dict:
+    """Fallback function when external service is unavailable"""
+    return {
+        'user_id': user_id,
+        'name': 'Unknown User',
+        'profile_source': 'fallback'
+    }
+
+circuit_breaker_config = CircuitBreakerConfig(
+    failure_threshold=3,
+    recovery_timeout=30,
+    expected_exception=requests.RequestException,
+    fallback_function=fallback_get_user_profile
+)
+
+@CircuitBreaker(circuit_breaker_config)
+def get_external_user_profile(user_id: str) -> dict:
+    """Call external service with circuit breaker protection"""
+    import requests
+    
+    response = requests.get(
+        f"https://external-api.example.com/users/{user_id}",
+        timeout=5
+    )
+    response.raise_for_status()
+    return response.json()
+```
+
+### Container-Based Lambda with Advanced Deployment
+
+#### Dockerfile for Production Lambda
+```dockerfile
+# Dockerfile for production Lambda container
+FROM public.ecr.aws/lambda/python:3.11
+
+# Install system dependencies
+RUN yum update -y && \
+    yum install -y gcc gcc-c++ && \
+    yum clean all && \
+    rm -rf /var/cache/yum
+
+# Set working directory
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+# Copy requirements first for better layer caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY src/ .
+COPY config/ ./config/
+
+# Copy lambda function
+COPY lambda_function.py .
+
+# Set environment variables
+ENV PYTHONPATH="${LAMBDA_TASK_ROOT}"
+ENV PYTHONUNBUFFERED=1
+
+# Command for Lambda
+CMD ["lambda_function.lambda_handler"]
+```
+
+#### Advanced Deployment with AWS CDK
+```python
+# infrastructure/lambda_stack.py - CDK stack for advanced Lambda deployment
+from aws_cdk import (
+    Duration,
+    Stack,
+    aws_lambda as lambda_,
+    aws_lambda_python_alpha as python_lambda,
+    aws_apigateway as apigateway,
+    aws_dynamodb as dynamodb,
+    aws_logs as logs,
+    aws_iam as iam,
+    aws_cloudwatch as cloudwatch,
+    aws_sns as sns,
+    aws_sqs as sqs,
+    aws_events as events,
+    aws_events_targets as targets,
+    RemovalPolicy
+)
+from constructs import Construct
+
+class AdvancedLambdaStack(Stack):
+    """
+    Advanced Lambda stack with comprehensive monitoring and deployment patterns
+    """
+    
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+        
+        # Environment configuration
+        self.environment = self.node.try_get_context("environment") or "dev"
+        self.is_production = self.environment == "prod"
+        
+        # Create DynamoDB table
+        self.users_table = self._create_dynamodb_table()
+        
+        # Create Lambda layer
+        self.powertools_layer = self._create_powertools_layer()
+        
+        # Create Lambda functions
+        self.lambda_functions = self._create_lambda_functions()
+        
+        # Create API Gateway
+        self.api = self._create_api_gateway()
+        
+        # Create monitoring and alerting
+        self._create_monitoring()
+        
+        # Create scheduled tasks
+        self._create_scheduled_tasks()
+    
+    def _create_dynamodb_table(self) -> dynamodb.Table:
+        """Create DynamoDB table with proper configuration"""
+        table = dynamodb.Table(
+            self, "UsersTable",
+            table_name=f"{self.stack_name}-users",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.AWS_MANAGED,
+            stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+            removal_policy=RemovalPolicy.DESTROY if not self.is_production else RemovalPolicy.RETAIN,
+            point_in_time_recovery=self.is_production
+        )
+        
+        # Add GSI for email lookup
+        table.add_global_secondary_index(
+            index_name="email-index",
+            partition_key=dynamodb.Attribute(
+                name="email",
+                type=dynamodb.AttributeType.STRING
+            )
+        )
+        
+        return table
+    
+    def _create_powertools_layer(self) -> lambda_.LayerVersion:
+        """Create Lambda layer with AWS Powertools"""
+        return python_lambda.PythonLayerVersion(
+            self, "PowertoolsLayer",
+            entry="layers/powertools",
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
+            description="AWS Lambda Powertools for Python"
+        )
+    
+    def _create_lambda_functions(self) -> dict:
+        """Create Lambda functions with advanced configuration"""
+        
+        # Common environment variables
+        common_env = {
+            "ENVIRONMENT": self.environment,
+            "USERS_TABLE": self.users_table.table_name,
+            "POWERTOOLS_SERVICE_NAME": "user-service",
+            "POWERTOOLS_METRICS_NAMESPACE": "UserService",
+            "LOG_LEVEL": "INFO" if self.is_production else "DEBUG"
+        }
+        
+        # Common Lambda configuration
+        common_props = {
+            "runtime": lambda_.Runtime.PYTHON_3_11,
+            "timeout": Duration.seconds(30),
+            "memory_size": 256,
+            "environment": common_env,
+            "layers": [self.powertools_layer],
+            "tracing": lambda_.Tracing.ACTIVE,
+            "log_retention": logs.RetentionDays.ONE_MONTH if self.is_production else logs.RetentionDays.ONE_WEEK,
+            "dead_letter_queue_enabled": True,
+            "retry_attempts": 2
+        }
+        
+        functions = {}
+        
+        # Get Users Function
+        functions['get_users'] = python_lambda.PythonFunction(
+            self, "GetUsersFunction",
+            entry="src/users",
+            handler="lambda_handler",
+            index="get_users.py",
+            **common_props
+        )
+        
+        # Create User Function
+        functions['create_user'] = python_lambda.PythonFunction(
+            self, "CreateUserFunction",
+            entry="src/users",
+            handler="lambda_handler", 
+            index="create_user.py",
+            **common_props
+        )
+        
+        # User Metrics Function (scheduled)
+        functions['user_metrics'] = python_lambda.PythonFunction(
+            self, "UserMetricsFunction",
+            entry="src/metrics",
+            handler="lambda_handler",
+            index="user_metrics.py",
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            **{k: v for k, v in common_props.items() if k not in ['timeout', 'memory_size']}
+        )
+        
+        # Grant permissions
+        for function in functions.values():
+            self.users_table.grant_read_write_data(function)
+            
+            # Grant CloudWatch metrics permissions
+            function.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["cloudwatch:PutMetricData"],
+                    resources=["*"]
+                )
+            )
+        
+        return functions
+    
+    def _create_api_gateway(self) -> apigateway.RestApi:
+        """Create API Gateway with proper configuration"""
+        
+        # Create CloudWatch log group for API Gateway
+        api_log_group = logs.LogGroup(
+            self, "ApiGatewayLogGroup",
+            log_group_name=f"/aws/apigateway/{self.stack_name}",
+            retention=logs.RetentionDays.ONE_MONTH if self.is_production else logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+        
+        # Create API Gateway
+        api = apigateway.RestApi(
+            self, "UserServiceApi",
+            rest_api_name=f"{self.stack_name}-api",
+            description="User Service API",
+            deploy_options=apigateway.StageOptions(
+                stage_name=self.environment,
+                throttling_rate_limit=100,
+                throttling_burst_limit=200,
+                logging_level=apigateway.MethodLoggingLevel.INFO,
+                data_trace_enabled=not self.is_production,
+                metrics_enabled=True,
+                access_log_destination=apigateway.LogGroupLogDestination(api_log_group),
+                access_log_format=apigateway.AccessLogFormat.json_with_standard_fields()
+            ),
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_methods=apigateway.Cors.ALL_METHODS,
+                allow_headers=["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key"]
+            )
+        )
+        
+        # Create resources and methods
+        users_resource = api.root.add_resource("users")
+        
+        # GET /users
+        users_resource.add_method(
+            "GET",
+            apigateway.LambdaIntegration(self.lambda_functions['get_users']),
+            request_parameters={
+                "method.request.querystring.limit": False,
+                "method.request.querystring.filter_email": False
+            }
+        )
+        
+        # POST /users
+        users_resource.add_method(
+            "POST", 
+            apigateway.LambdaIntegration(self.lambda_functions['create_user'])
+        )
+        
+        # GET /users/{user_id}
+        user_resource = users_resource.add_resource("{user_id}")
+        user_resource.add_method(
+            "GET",
+            apigateway.LambdaIntegration(self.lambda_functions['get_users'])
+        )
+        
+        return api
+    
+    def _create_monitoring(self):
+        """Create comprehensive monitoring and alerting"""
+        
+        # Create SNS topic for alerts
+        alerts_topic = sns.Topic(
+            self, "AlertsTopic",
+            topic_name=f"{self.stack_name}-alerts"
+        )
+        
+        # Function-level alarms
+        for name, function in self.lambda_functions.items():
+            
+            # Error rate alarm
+            error_alarm = cloudwatch.Alarm(
+                self, f"{name}ErrorAlarm",
+                alarm_name=f"{self.stack_name}-{name}-errors",
+                metric=function.metric_errors(
+                    period=Duration.minutes(5),
+                    statistic="Sum"
+                ),
+                threshold=5,
+                evaluation_periods=2,
+                alarm_description=f"High error rate for {name} function"
+            )
+            error_alarm.add_alarm_action(
+                cloudwatch_actions.SnsAction(alerts_topic)
+            )
+            
+            # Duration alarm
+            duration_alarm = cloudwatch.Alarm(
+                self, f"{name}DurationAlarm", 
+                alarm_name=f"{self.stack_name}-{name}-duration",
+                metric=function.metric_duration(
+                    period=Duration.minutes(5),
+                    statistic="Average"
+                ),
+                threshold=10000,  # 10 seconds
+                evaluation_periods=3,
+                alarm_description=f"High duration for {name} function"
+            )
+            duration_alarm.add_alarm_action(
+                cloudwatch_actions.SnsAction(alerts_topic)
+            )
+            
+            # Throttle alarm
+            throttle_alarm = cloudwatch.Alarm(
+                self, f"{name}ThrottleAlarm",
+                alarm_name=f"{self.stack_name}-{name}-throttles", 
+                metric=function.metric_throttles(
+                    period=Duration.minutes(5),
+                    statistic="Sum"
+                ),
+                threshold=1,
+                evaluation_periods=1,
+                alarm_description=f"Function throttling for {name}"
+            )
+            throttle_alarm.add_alarm_action(
+                cloudwatch_actions.SnsAction(alerts_topic)
+            )
+        
+        # API Gateway alarms
+        api_error_alarm = cloudwatch.Alarm(
+            self, "ApiErrorAlarm",
+            alarm_name=f"{self.stack_name}-api-errors",
+            metric=cloudwatch.Metric(
+                namespace="AWS/ApiGateway",
+                metric_name="4XXError",
+                dimensions={
+                    "ApiName": self.api.rest_api_name,
+                    "Stage": self.environment
+                },
+                period=Duration.minutes(5),
+                statistic="Sum"
+            ),
+            threshold=10,
+            evaluation_periods=2,
+            alarm_description="High 4XX error rate for API"
+        )
+        api_error_alarm.add_alarm_action(
+            cloudwatch_actions.SnsAction(alerts_topic)
+        )
+        
+        # DynamoDB alarms
+        dynamo_throttle_alarm = cloudwatch.Alarm(
+            self, "DynamoThrottleAlarm",
+            alarm_name=f"{self.stack_name}-dynamo-throttles",
+            metric=cloudwatch.Metric(
+                namespace="AWS/DynamoDB",
+                metric_name="ReadThrottledEvents",
+                dimensions={
+                    "TableName": self.users_table.table_name
+                },
+                period=Duration.minutes(5),
+                statistic="Sum"
+            ),
+            threshold=1,
+            evaluation_periods=1,
+            alarm_description="DynamoDB read throttling"
+        )
+        dynamo_throttle_alarm.add_alarm_action(
+            cloudwatch_actions.SnsAction(alerts_topic)
+        )
+    
+    def _create_scheduled_tasks(self):
+        """Create scheduled Lambda tasks"""
+        
+        # Metrics collection rule
+        metrics_rule = events.Rule(
+            self, "MetricsRule",
+            rule_name=f"{self.stack_name}-metrics",
+            schedule=events.Schedule.rate(Duration.hours(1)),
+            enabled=self.is_production
+        )
+        
+        metrics_rule.add_target(
+            targets.LambdaFunction(
+                self.lambda_functions['user_metrics'],
+                event=events.RuleTargetInput.from_object({
+                    "source": "scheduled",
+                    "environment": self.environment
+                })
+            )
+        )
+```
+
+This comprehensive enhancement transforms AWS Lambda into a production-ready serverless platform with enterprise-grade patterns, advanced observability, sophisticated error handling, and modern deployment practices using Infrastructure as Code.

@@ -1287,6 +1287,675 @@ if __name__ == "__main__":
     main()
 ```
 
+## Advanced Production Patterns
+
+### Multi-Cluster Management
+
+```terraform
+# Advanced multi-cluster EKS setup with cross-cluster networking
+module "production_clusters" {
+  source = "./modules/eks-cluster"
+  
+  for_each = {
+    "prod-us-east-1" = {
+      region = "us-east-1"
+      availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+      node_groups = {
+        system = {
+          instance_types = ["m6i.large", "m6i.xlarge"]
+          capacity_type = "ON_DEMAND"
+          min_size = 3
+          max_size = 10
+          desired_size = 3
+        }
+        application = {
+          instance_types = ["m6i.large", "m6i.xlarge", "m6i.2xlarge"]
+          capacity_type = "SPOT"
+          min_size = 2
+          max_size = 50
+          desired_size = 5
+        }
+      }
+    }
+    "prod-us-west-2" = {
+      region = "us-west-2"
+      availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
+      node_groups = {
+        system = {
+          instance_types = ["m6i.large", "m6i.xlarge"]
+          capacity_type = "ON_DEMAND"
+          min_size = 3
+          max_size = 10
+          desired_size = 3
+        }
+        application = {
+          instance_types = ["m6i.large", "m6i.xlarge", "m6i.2xlarge"]
+          capacity_type = "SPOT"
+          min_size = 2
+          max_size = 50
+          desired_size = 5
+        }
+      }
+    }
+  }
+  
+  cluster_name = each.key
+  region = each.value.region
+  availability_zones = each.value.availability_zones
+  node_groups = each.value.node_groups
+  
+  # Advanced security configuration
+  cluster_encryption_config = {
+    provider_key_arn = aws_kms_key.eks[each.value.region].arn
+    resources = ["secrets"]
+  }
+  
+  # Enhanced logging
+  cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  
+  # Network configuration
+  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access = false
+  cluster_endpoint_public_access_cidrs = []
+  
+  # Add-ons with specific versions
+  cluster_addons = {
+    coredns = {
+      addon_version = "v1.10.1-eksbuild.1"
+      resolve_conflicts = "OVERWRITE"
+    }
+    kube-proxy = {
+      addon_version = "v1.28.1-eksbuild.1"
+      resolve_conflicts = "OVERWRITE"
+    }
+    vpc-cni = {
+      addon_version = "v1.13.4-eksbuild.1"
+      resolve_conflicts = "OVERWRITE"
+      configuration_values = jsonencode({
+        env = {
+          ENABLE_PREFIX_DELEGATION = "true"
+          ENABLE_POD_ENI = "true"
+          POD_SECURITY_GROUP_ENFORCING_MODE = "standard"
+        }
+      })
+    }
+    aws-ebs-csi-driver = {
+      addon_version = "v1.22.0-eksbuild.2"
+      resolve_conflicts = "OVERWRITE"
+    }
+  }
+  
+  tags = {
+    Environment = "production"
+    ManagedBy = "terraform"
+    Team = "platform"
+    CostCenter = "engineering"
+  }
+}
+
+# Cross-cluster service mesh with Istio
+resource "helm_release" "istio_base" {
+  for_each = module.production_clusters
+  
+  name       = "istio-base"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "base"
+  namespace  = "istio-system"
+  version    = "1.19.0"
+  
+  create_namespace = true
+  
+  depends_on = [each.value.cluster_endpoint]
+}
+
+resource "helm_release" "istiod" {
+  for_each = module.production_clusters
+  
+  name       = "istiod"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  chart      = "istiod"
+  namespace  = "istio-system"
+  version    = "1.19.0"
+  
+  values = [
+    yamlencode({
+      pilot = {
+        env = {
+          EXTERNAL_ISTIOD = true
+        }
+      }
+      global = {
+        meshID = "mesh1"
+        network = each.key
+        externalIstiod = true
+      }
+    })
+  ]
+  
+  depends_on = [helm_release.istio_base[each.key]]
+}
+```
+
+### Advanced Workload Scheduling
+
+```yaml
+# Sophisticated workload scheduling with node affinity and taints
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: high-performance-app
+  namespace: production
+spec:
+  replicas: 6
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: high-performance-app
+  template:
+    metadata:
+      labels:
+        app: high-performance-app
+        version: v1.2.3
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Advanced scheduling constraints
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values: ["m6i.xlarge", "m6i.2xlarge", "c6i.xlarge"]
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values: ["us-west-2a", "us-west-2b", "us-west-2c"]
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values: ["compute-optimized"]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: ["high-performance-app"]
+            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["high-performance-app"]
+              topologyKey: topology.kubernetes.io/zone
+      
+      # Tolerate specific taints
+      tolerations:
+      - key: "high-performance"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/instance-type"
+        operator: "Equal"
+        value: "c6i.xlarge"
+        effect: "NoSchedule"
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Service account with IRSA
+      serviceAccountName: high-performance-app
+      
+      # Init containers for setup
+      initContainers:
+      - name: migration
+        image: migrate/migrate:v4.16.2
+        command:
+        - migrate
+        - "-path"
+        - "/migrations"
+        - "-database"
+        - "$(DATABASE_URL)"
+        - "up"
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: url
+        volumeMounts:
+        - name: migrations
+          mountPath: /migrations
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+      
+      containers:
+      - name: app
+        image: mycompany/high-performance-app:v1.2.3
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        
+        # Resource management
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+            ephemeral-storage: "2Gi"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+            ephemeral-storage: "4Gi"
+        
+        # Environment configuration
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+            httpHeaders:
+            - name: Custom-Header
+              value: liveness-check
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 30
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
+        
+        # Volume mounts
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: tls-certs
+          mountPath: /app/certs
+          readOnly: true
+      
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: config
+        configMap:
+          name: app-config
+          defaultMode: 0644
+      - name: migrations
+        configMap:
+          name: database-migrations
+      - name: tls-certs
+        secret:
+          secretName: tls-certificates
+          defaultMode: 0600
+      
+      # DNS configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+      
+      # Priority and preemption
+      priorityClassName: high-priority
+      
+      # Graceful termination
+      terminationGracePeriodSeconds: 60
+---
+# Horizontal Pod Autoscaler with custom metrics
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: high-performance-app-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: high-performance-app
+  minReplicas: 6
+  maxReplicas: 100
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: custom_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "100"
+  - type: External
+    external:
+      metric:
+        name: sqs_queue_length
+        selector:
+          matchLabels:
+            queue: high-priority-queue
+      target:
+        type: Value
+        value: "30"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: high-performance-app-pdb
+  namespace: production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: high-performance-app
+```
+
+### Advanced Security Configuration
+
+```yaml
+# Comprehensive security setup with PSS, Network Policies, and RBAC
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secure-production
+  labels:
+    # Pod Security Standards
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    # Istio injection
+    istio-injection: enabled
+    # Monitoring
+    prometheus.io/scrape: "true"
+---
+# Network Policy for micro-segmentation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secure-app-netpol
+  namespace: secure-production
+spec:
+  podSelector:
+    matchLabels:
+      app: secure-app
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+      podSelector:
+        matchLabels:
+          app: prometheus
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090  # metrics
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: database
+      podSelector:
+        matchLabels:
+          app: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: cache
+      podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to: []  # DNS
+    ports:
+    - protocol: UDP
+      port: 53
+  - to: []  # HTTPS to external services
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# Service Account with minimal RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secure-app
+  namespace: secure-production
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/SecureAppRole
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: secure-production
+  name: secure-app-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+  resourceNames: ["app-config", "feature-flags"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["app-secrets"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secure-app-binding
+  namespace: secure-production
+subjects:
+- kind: ServiceAccount
+  name: secure-app
+  namespace: secure-production
+roleRef:
+  kind: Role
+  name: secure-app-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Security Context Constraints
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: secure-production
+type: Opaque
+data:
+  database-password: <base64-encoded-password>
+  api-key: <base64-encoded-api-key>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: secure-production
+data:
+  app.properties: |
+    server.port=8080
+    management.endpoints.web.exposure.include=health,metrics,prometheus
+    management.endpoint.health.show-details=when-authorized
+    logging.level.com.company=INFO
+    security.require-ssl=true
+---
+# OPA Gatekeeper Policy
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: requiresecuritycontext
+spec:
+  crd:
+    spec:
+      names:
+        kind: RequireSecurityContext
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package requiresecuritycontext
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.runAsNonRoot
+          msg := "Container must run as non-root user"
+        }
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.allowPrivilegeEscalation == true
+          msg := "Container must not allow privilege escalation"
+        }
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem
+          msg := "Container must have read-only root filesystem"
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RequireSecurityContext
+metadata:
+  name: must-have-security-context
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment"]
+    namespaces: ["secure-production"]
+  parameters: {}
+```
+
 ## Best Practices
 
 ### Cluster Configuration
@@ -1294,21 +1963,43 @@ if __name__ == "__main__":
 - **Fargate:** Use for serverless workloads that don't require persistent storage
 - **Spot Instances:** Implement for cost-effective, fault-tolerant workloads
 - **Multi-AZ:** Deploy across multiple availability zones for high availability
+- **Instance Types:** Use latest generation instances (m6i, c6i) for better performance and cost
+- **Cluster Autoscaler:** Configure with appropriate scaling policies and instance diversity
 
 ### Security Best Practices
 - **IRSA:** Use IAM Roles for Service Accounts for fine-grained permissions
 - **Private Endpoints:** Enable private endpoint access and restrict public access
 - **Pod Security:** Implement Pod Security Standards and Network Policies
 - **Image Scanning:** Enable ECR vulnerability scanning for container images
+- **Secrets Management:** Use AWS Secrets Manager or External Secrets Operator
+- **Network Policies:** Implement default-deny network policies with explicit allow rules
+- **OPA Gatekeeper:** Use admission controllers for policy enforcement
 
 ### Operational Excellence
 - **GitOps:** Implement GitOps workflows with ArgoCD or Flux
 - **Monitoring:** Deploy comprehensive monitoring with Prometheus and Grafana
 - **Logging:** Enable control plane logging and structured application logging
 - **Backup:** Implement backup strategies for persistent data and cluster configurations
+- **Disaster Recovery:** Test and automate disaster recovery procedures
+- **Chaos Engineering:** Regular fault injection testing with tools like Chaos Monkey
+
+### Performance Optimization
+- **Resource Management:** Set appropriate requests and limits for all containers
+- **Horizontal Pod Autoscaling:** Configure HPA with multiple metrics (CPU, memory, custom)
+- **Vertical Pod Autoscaling:** Use VPA for right-sizing recommendations
+- **Node Affinity:** Use node affinity and anti-affinity for optimal workload placement
+- **Topology Spread Constraints:** Ensure even distribution across zones and nodes
 
 ### Cost Optimization
 - **Right-sizing:** Regularly review and optimize resource requests and limits
 - **Cluster Autoscaler:** Implement automatic node scaling based on demand
-- **Spot Instances:** Use spot instances for non-critical workloads
+- **Spot Instances:** Use spot instances for non-critical workloads (up to 70% savings)
 - **Resource Quotas:** Implement namespace-level resource quotas and limits
+- **Scheduled Scaling:** Use scheduled autoscaling for predictable workload patterns
+- **Karpenter:** Consider Karpenter for more efficient and faster node provisioning
+
+### Sustainability
+- **Graviton Instances:** Use ARM-based Graviton instances for better energy efficiency
+- **Right-sizing:** Optimize resource allocation to reduce waste
+- **Cluster Consolidation:** Consolidate workloads to improve resource utilization
+- **Green Regions:** Deploy in regions with higher renewable energy usage
