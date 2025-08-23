@@ -1,12 +1,12 @@
 # AWS ELB (Elastic Load Balancing)
 
-> **Service Type:** Load Balancing | **Tier:** Container Services | **Global/Regional:** Regional
+> **Service Type:** Networking & Content Delivery | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 
 AWS Elastic Load Balancing (ELB) automatically distributes incoming application traffic across multiple targets such as EC2 instances, containers, IP addresses, and Lambda functions in multiple Availability Zones. ELB provides the high availability, automatic scaling, and robust security needed to make applications fault tolerant.
 
-## DevOps Use Cases
+## DevOps & Enterprise Use Cases
 
 ### High Availability Architecture
 - **Multi-AZ deployment** with automatic failover between availability zones
@@ -38,7 +38,9 @@ AWS Elastic Load Balancing (ELB) automatically distributes incoming application 
 - **Request tracing** end-to-end request tracking through X-Amzn-Trace-Id headers
 - **Integration with AWS Config** compliance monitoring and configuration drift detection
 
-## Load Balancer Types
+## Core Architecture Components
+
+### Load Balancer Types
 
 ### Application Load Balancer (ALB)
 - **Layer 7 (HTTP/HTTPS)** application-aware load balancing
@@ -66,7 +68,9 @@ AWS Elastic Load Balancing (ELB) automatically distributes incoming application 
 - **Sticky sessions** support for session affinity
 - **Migration path** to ALB or NLB for enhanced features
 
-## Core Features
+## Service Features & Capabilities
+
+### Core Features
 
 ### Health Checking
 - **Active health checks** regular probes to determine target health
@@ -91,6 +95,105 @@ AWS Elastic Load Balancing (ELB) automatically distributes incoming application 
 - **ECS services** native container orchestration support
 - **EKS clusters** Kubernetes ingress controller integration
 - **Lambda functions** serverless application load balancing
+
+## Configuration & Setup
+
+### Basic Load Balancer Setup
+
+```python
+import boto3
+from datetime import datetime
+
+class ELBManager:
+    def __init__(self, region='us-west-2'):
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+        self.ec2 = boto3.client('ec2', region_name=region)
+    
+    def create_application_load_balancer(self, config):
+        """Create an Application Load Balancer with basic configuration"""
+        
+        response = self.elbv2.create_load_balancer(
+            Name=config['name'],
+            Subnets=config['subnet_ids'],
+            SecurityGroups=config.get('security_groups', []),
+            Scheme=config.get('scheme', 'internet-facing'),
+            Type='application',
+            IpAddressType=config.get('ip_address_type', 'ipv4'),
+            Tags=[
+                {'Key': 'Name', 'Value': config['name']},
+                {'Key': 'Environment', 'Value': config.get('environment', 'dev')},
+                {'Key': 'CreatedAt', 'Value': datetime.now().isoformat()}
+            ]
+        )
+        
+        lb_arn = response['LoadBalancers'][0]['LoadBalancerArn']
+        
+        # Enable access logs if specified
+        if config.get('access_logs'):
+            self.elbv2.modify_load_balancer_attributes(
+                LoadBalancerArn=lb_arn,
+                Attributes=[
+                    {
+                        'Key': 'access_logs.s3.enabled',
+                        'Value': 'true'
+                    },
+                    {
+                        'Key': 'access_logs.s3.bucket',
+                        'Value': config['access_logs']['bucket']
+                    },
+                    {
+                        'Key': 'access_logs.s3.prefix',
+                        'Value': config['access_logs'].get('prefix', '')
+                    }
+                ]
+            )
+        
+        return lb_arn
+    
+    def create_target_group_with_health_check(self, config):
+        """Create a target group with custom health check configuration"""
+        
+        response = self.elbv2.create_target_group(
+            Name=config['name'],
+            Protocol=config.get('protocol', 'HTTP'),
+            Port=config.get('port', 80),
+            VpcId=config['vpc_id'],
+            HealthCheckProtocol=config.get('health_check_protocol', 'HTTP'),
+            HealthCheckPath=config.get('health_check_path', '/health'),
+            HealthCheckIntervalSeconds=config.get('health_check_interval', 30),
+            HealthCheckTimeoutSeconds=config.get('health_check_timeout', 5),
+            HealthyThresholdCount=config.get('healthy_threshold', 2),
+            UnhealthyThresholdCount=config.get('unhealthy_threshold', 3),
+            Matcher={'HttpCode': config.get('success_codes', '200')},
+            Tags=[
+                {'Key': 'Name', 'Value': config['name']},
+                {'Key': 'Application', 'Value': config.get('application', '')},
+                {'Key': 'Environment', 'Value': config.get('environment', 'dev')}
+            ]
+        )
+        
+        return response['TargetGroups'][0]['TargetGroupArn']
+```
+
+### SSL/TLS Configuration
+
+```bash
+# Create HTTPS listener with SSL certificate
+aws elbv2 create-listener \
+  --load-balancer-arn arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-app-lb/1234567890123456 \
+  --protocol HTTPS \
+  --port 443 \
+  --ssl-policy ELBSecurityPolicy-TLS-1-2-2017-01 \
+  --certificates CertificateArn=arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012 \
+  --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/web-servers/1234567890123456
+
+# Create redirect rule from HTTP to HTTPS
+aws elbv2 create-listener \
+  --load-balancer-arn arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-app-lb/1234567890123456 \
+  --protocol HTTP \
+  --port 80 \
+  --default-actions Type=redirect,RedirectConfig='{Protocol=HTTPS,Port=443,StatusCode=HTTP_301}'
+```
 
 ## Practical CLI Examples
 
@@ -1230,3 +1333,1013 @@ if __name__ == "__main__":
 - **Idle resource cleanup** regularly review and remove unused load balancers and target groups
 - **Monitoring usage** implement CloudWatch metrics and billing alerts for cost control
 - **Consolidation opportunities** consider consolidating multiple applications on single ALB with path-based routing
+
+## Enterprise Implementation Examples
+
+### Multi-Environment Load Balancer Strategy
+
+```python
+class EnterpriseELBManager:
+    def __init__(self, region='us-west-2'):
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+        self.route53 = boto3.client('route53', region_name=region)
+    
+    def deploy_multi_environment_infrastructure(self, app_config):
+        """Deploy load balancer infrastructure across multiple environments"""
+        
+        environments = ['dev', 'staging', 'prod']
+        deployed_resources = {}
+        
+        for env in environments:
+            env_config = {
+                'name': f"{app_config['application_name']}-{env}",
+                'subnet_ids': app_config['subnets'][env],
+                'security_groups': app_config['security_groups'][env],
+                'scheme': 'internet-facing' if env == 'prod' else 'internal',
+                'environment': env,
+                'access_logs': {
+                    'bucket': f"{app_config['log_bucket']}-{env}",
+                    'prefix': f"alb-logs/{env}/"
+                }
+            }
+            
+            # Create load balancer
+            lb_arn = self.create_application_load_balancer(env_config)
+            
+            # Create target groups for each service tier
+            target_groups = {}
+            for service in app_config['services']:
+                tg_config = {
+                    'name': f"{app_config['application_name']}-{service}-{env}",
+                    'protocol': 'HTTP',
+                    'port': app_config['services'][service]['port'],
+                    'vpc_id': app_config['vpc_id'],
+                    'health_check_path': app_config['services'][service]['health_path'],
+                    'environment': env,
+                    'application': service
+                }
+                
+                target_groups[service] = self.create_target_group_with_health_check(tg_config)
+            
+            # Create listeners with routing rules
+            self._create_advanced_routing_rules(lb_arn, target_groups, env)
+            
+            # Set up Route53 DNS
+            if env == 'prod':
+                self._create_route53_records(
+                    app_config['domain_name'],
+                    app_config['hosted_zone_id'],
+                    lb_arn
+                )
+            
+            deployed_resources[env] = {
+                'load_balancer_arn': lb_arn,
+                'target_groups': target_groups
+            }
+        
+        return deployed_resources
+    
+    def _create_advanced_routing_rules(self, lb_arn, target_groups, environment):
+        """Create sophisticated routing rules for microservices"""
+        
+        # Create HTTPS listener
+        listener_response = self.elbv2.create_listener(
+            LoadBalancerArn=lb_arn,
+            Protocol='HTTPS',
+            Port=443,
+            DefaultActions=[
+                {
+                    'Type': 'forward',
+                    'TargetGroupArn': target_groups.get('frontend', target_groups[list(target_groups.keys())[0]])
+                }
+            ]
+        )
+        
+        listener_arn = listener_response['Listeners'][0]['ListenerArn']
+        
+        # Create routing rules for each service
+        priority = 100
+        service_routes = {
+            'api': '/api/*',
+            'auth': '/auth/*',
+            'admin': '/admin/*',
+            'websocket': '/ws/*'
+        }
+        
+        for service, path_pattern in service_routes.items():
+            if service in target_groups:
+                self.elbv2.create_rule(
+                    ListenerArn=listener_arn,
+                    Priority=priority,
+                    Conditions=[
+                        {
+                            'Field': 'path-pattern',
+                            'Values': [path_pattern]
+                        }
+                    ],
+                    Actions=[
+                        {
+                            'Type': 'forward',
+                            'TargetGroupArn': target_groups[service]
+                        }
+                    ]
+                )
+                priority += 10
+```
+
+### Canary Deployment with Weighted Routing
+
+```python
+class CanaryDeploymentManager:
+    def __init__(self, region='us-west-2'):
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+        self.cloudwatch = boto3.client('cloudwatch', region_name=region)
+    
+    def execute_canary_deployment(self, deployment_config):
+        """Execute canary deployment with gradual traffic shifting"""
+        
+        listener_arn = deployment_config['listener_arn']
+        stable_tg_arn = deployment_config['stable_target_group']
+        canary_tg_arn = deployment_config['canary_target_group']
+        
+        # Canary rollout schedule: 5% -> 25% -> 50% -> 100%
+        traffic_shifts = [
+            {'canary': 5, 'stable': 95, 'duration_minutes': 15},
+            {'canary': 25, 'stable': 75, 'duration_minutes': 30},
+            {'canary': 50, 'stable': 50, 'duration_minutes': 30},
+            {'canary': 100, 'stable': 0, 'duration_minutes': 0}
+        ]
+        
+        for shift in traffic_shifts:
+            # Update listener with weighted routing
+            self._update_weighted_routing(
+                listener_arn,
+                stable_tg_arn,
+                canary_tg_arn,
+                shift['stable'],
+                shift['canary']
+            )
+            
+            print(f"Traffic shifted: {shift['canary']}% to canary, {shift['stable']}% to stable")
+            
+            if shift['duration_minutes'] > 0:
+                # Monitor canary performance
+                if not self._monitor_canary_health(canary_tg_arn, shift['duration_minutes']):
+                    print("Canary deployment failed. Rolling back...")
+                    self._rollback_deployment(listener_arn, stable_tg_arn)
+                    return False
+                
+                # Wait for next shift
+                import time
+                time.sleep(shift['duration_minutes'] * 60)
+        
+        print("Canary deployment completed successfully!")
+        return True
+    
+    def _update_weighted_routing(self, listener_arn, stable_tg, canary_tg, stable_weight, canary_weight):
+        """Update listener with weighted target groups"""
+        
+        actions = []
+        
+        if stable_weight > 0:
+            actions.append({
+                'Type': 'forward',
+                'ForwardConfig': {
+                    'TargetGroups': [
+                        {
+                            'TargetGroupArn': stable_tg,
+                            'Weight': stable_weight
+                        }
+                    ]
+                }
+            })
+        
+        if canary_weight > 0:
+            if actions:
+                actions[0]['ForwardConfig']['TargetGroups'].append({
+                    'TargetGroupArn': canary_tg,
+                    'Weight': canary_weight
+                })
+            else:
+                actions.append({
+                    'Type': 'forward',
+                    'TargetGroupArn': canary_tg
+                })
+        
+        self.elbv2.modify_listener(
+            ListenerArn=listener_arn,
+            DefaultActions=actions
+        )
+    
+    def _monitor_canary_health(self, target_group_arn, duration_minutes):
+        """Monitor canary deployment health metrics"""
+        
+        # Define acceptable thresholds
+        thresholds = {
+            'error_rate_5xx': 5.0,  # 5% max
+            'error_rate_4xx': 10.0,  # 10% max
+            'response_time': 2.0     # 2 seconds max
+        }
+        
+        # Monitor for specified duration
+        start_time = datetime.now()
+        end_time = start_time + timedelta(minutes=duration_minutes)
+        
+        while datetime.now() < end_time:
+            metrics = self._get_target_group_metrics(target_group_arn, minutes=5)
+            
+            # Check error rates
+            total_requests = metrics.get('request_count', 1)
+            if total_requests > 0:
+                error_rate_5xx = (metrics.get('5xx_count', 0) / total_requests) * 100
+                error_rate_4xx = (metrics.get('4xx_count', 0) / total_requests) * 100
+                
+                if error_rate_5xx > thresholds['error_rate_5xx']:
+                    print(f"High 5xx error rate: {error_rate_5xx:.2f}%")
+                    return False
+                
+                if error_rate_4xx > thresholds['error_rate_4xx']:
+                    print(f"High 4xx error rate: {error_rate_4xx:.2f}%")
+                    return False
+            
+            # Check response time
+            if metrics.get('response_time', 0) > thresholds['response_time']:
+                print(f"High response time: {metrics['response_time']:.2f}s")
+                return False
+            
+            # Wait before next check
+            import time
+            time.sleep(60)  # Check every minute
+        
+        return True
+```
+
+## Monitoring & Observability
+
+### CloudWatch Dashboard Setup
+
+```python
+class ELBMonitoringSetup:
+    def __init__(self, region='us-west-2'):
+        self.cloudwatch = boto3.client('cloudwatch', region_name=region)
+    
+    def create_elb_dashboard(self, dashboard_name, load_balancer_arns):
+        """Create comprehensive CloudWatch dashboard for load balancers"""
+        
+        widgets = []
+        
+        for i, lb_arn in enumerate(load_balancer_arns):
+            lb_name = lb_arn.split('/')[-3]
+            
+            # Request count widget
+            widgets.append({
+                "type": "metric",
+                "x": (i % 2) * 12,
+                "y": i * 6,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                    "metrics": [
+                        ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", lb_name],
+                        [".", "HTTPCode_Target_2XX_Count", ".", "."],
+                        [".", "HTTPCode_Target_4XX_Count", ".", "."],
+                        [".", "HTTPCode_Target_5XX_Count", ".", "."]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-west-2",
+                    "title": f"{lb_name} - Request Metrics"
+                }
+            })
+            
+            # Response time widget
+            widgets.append({
+                "type": "metric",
+                "x": (i % 2) * 12,
+                "y": i * 6 + 6,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                    "metrics": [
+                        ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", lb_name]
+                    ],
+                    "period": 300,
+                    "stat": "Average",
+                    "region": "us-west-2",
+                    "title": f"{lb_name} - Response Time"
+                }
+            })
+        
+        dashboard_body = json.dumps({"widgets": widgets})
+        
+        self.cloudwatch.put_dashboard(
+            DashboardName=dashboard_name,
+            DashboardBody=dashboard_body
+        )
+        
+        print(f"Created dashboard: {dashboard_name}")
+    
+    def setup_elb_alarms(self, load_balancer_arn, sns_topic_arn):
+        """Set up comprehensive alarms for load balancer"""
+        
+        lb_name = load_balancer_arn.split('/')[-3]
+        
+        alarms = [
+            {
+                'AlarmName': f'{lb_name}-HighErrorRate',
+                'ComparisonOperator': 'GreaterThanThreshold',
+                'EvaluationPeriods': 2,
+                'MetricName': 'HTTPCode_Target_5XX_Count',
+                'Namespace': 'AWS/ApplicationELB',
+                'Period': 300,
+                'Statistic': 'Sum',
+                'Threshold': 10.0,
+                'ActionsEnabled': True,
+                'AlarmActions': [sns_topic_arn],
+                'AlarmDescription': 'High 5xx error rate detected',
+                'Dimensions': [
+                    {'Name': 'LoadBalancer', 'Value': lb_name}
+                ]
+            },
+            {
+                'AlarmName': f'{lb_name}-HighResponseTime',
+                'ComparisonOperator': 'GreaterThanThreshold',
+                'EvaluationPeriods': 3,
+                'MetricName': 'TargetResponseTime',
+                'Namespace': 'AWS/ApplicationELB',
+                'Period': 300,
+                'Statistic': 'Average',
+                'Threshold': 2.0,
+                'ActionsEnabled': True,
+                'AlarmActions': [sns_topic_arn],
+                'AlarmDescription': 'High response time detected'
+            },
+            {
+                'AlarmName': f'{lb_name}-NoHealthyTargets',
+                'ComparisonOperator': 'LessThanThreshold',
+                'EvaluationPeriods': 2,
+                'MetricName': 'HealthyHostCount',
+                'Namespace': 'AWS/ApplicationELB',
+                'Period': 60,
+                'Statistic': 'Average',
+                'Threshold': 1.0,
+                'ActionsEnabled': True,
+                'AlarmActions': [sns_topic_arn],
+                'AlarmDescription': 'No healthy targets available'
+            }
+        ]
+        
+        for alarm_config in alarms:
+            self.cloudwatch.put_metric_alarm(**alarm_config)
+            print(f"Created alarm: {alarm_config['AlarmName']}")
+```
+
+### Access Log Analysis
+
+```bash
+#!/bin/bash
+# analyze-elb-access-logs.sh - Analyze ELB access logs for insights
+
+LOG_BUCKET="my-elb-access-logs"
+LOG_PREFIX="production-alb"
+ANALYSIS_OUTPUT="/tmp/elb-analysis-$(date +%Y%m%d)"
+
+echo "Analyzing ELB access logs from s3://${LOG_BUCKET}/${LOG_PREFIX}/"
+
+# Download recent logs (last 24 hours)
+aws s3 sync s3://${LOG_BUCKET}/${LOG_PREFIX}/ ${ANALYSIS_OUTPUT}/raw-logs/ \
+  --exclude "*" \
+  --include "$(date -d '1 day ago' +%Y/%m/%d)*"
+
+# Combine all log files
+cat ${ANALYSIS_OUTPUT}/raw-logs/*.gz | gunzip > ${ANALYSIS_OUTPUT}/combined.log
+
+echo "=== TOP 10 CLIENT IPs ==="
+awk '{print $3}' ${ANALYSIS_OUTPUT}/combined.log | sort | uniq -c | sort -rn | head -10
+
+echo "=== TOP 10 REQUESTED PATHS ==="
+awk '{print $12}' ${ANALYSIS_OUTPUT}/combined.log | sort | uniq -c | sort -rn | head -10
+
+echo "=== ERROR ANALYSIS ==="
+echo "5xx Errors:"
+awk '$9 >= 500 && $9 < 600 {print $9}' ${ANALYSIS_OUTPUT}/combined.log | sort | uniq -c | sort -rn
+
+echo "4xx Errors:"
+awk '$9 >= 400 && $9 < 500 {print $9}' ${ANALYSIS_OUTPUT}/combined.log | sort | uniq -c | sort -rn
+
+echo "=== RESPONSE TIME ANALYSIS ==="
+awk '{if ($10 != "-") sum+=$10; count++} END {print "Average Response Time: " sum/count " seconds"}' ${ANALYSIS_OUTPUT}/combined.log
+
+echo "=== PEAK TRAFFIC HOURS ==="
+awk '{print substr($2, 12, 2)}' ${ANALYSIS_OUTPUT}/combined.log | sort | uniq -c | sort -k2n
+
+# Cleanup
+rm -rf ${ANALYSIS_OUTPUT}
+```
+
+## Security & Compliance
+
+### WAF Integration
+
+```python
+class ELBSecurityManager:
+    def __init__(self, region='us-west-2'):
+        self.wafv2 = boto3.client('wafv2', region_name=region)
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+    
+    def create_waf_web_acl(self, web_acl_name, environment):
+        """Create WAF Web ACL with security rules"""
+        
+        rules = [
+            {
+                'Name': 'AWSManagedRulesCommonRuleSet',
+                'Priority': 1,
+                'OverrideAction': {'None': {}},
+                'VisibilityConfig': {
+                    'SampledRequestsEnabled': True,
+                    'CloudWatchMetricsEnabled': True,
+                    'MetricName': 'CommonRuleSetMetric'
+                },
+                'Statement': {
+                    'ManagedRuleGroupStatement': {
+                        'VendorName': 'AWS',
+                        'Name': 'AWSManagedRulesCommonRuleSet'
+                    }
+                }
+            },
+            {
+                'Name': 'AWSManagedRulesKnownBadInputsRuleSet',
+                'Priority': 2,
+                'OverrideAction': {'None': {}},
+                'VisibilityConfig': {
+                    'SampledRequestsEnabled': True,
+                    'CloudWatchMetricsEnabled': True,
+                    'MetricName': 'KnownBadInputsMetric'
+                },
+                'Statement': {
+                    'ManagedRuleGroupStatement': {
+                        'VendorName': 'AWS',
+                        'Name': 'AWSManagedRulesKnownBadInputsRuleSet'
+                    }
+                }
+            },
+            {
+                'Name': 'RateLimitRule',
+                'Priority': 3,
+                'Action': {'Block': {}},
+                'VisibilityConfig': {
+                    'SampledRequestsEnabled': True,
+                    'CloudWatchMetricsEnabled': True,
+                    'MetricName': 'RateLimitMetric'
+                },
+                'Statement': {
+                    'RateBasedStatement': {
+                        'Limit': 2000,  # requests per 5 minutes
+                        'AggregateKeyType': 'IP'
+                    }
+                }
+            }
+        ]
+        
+        response = self.wafv2.create_web_acl(
+            Scope='REGIONAL',
+            Name=web_acl_name,
+            DefaultAction={'Allow': {}},
+            Rules=rules,
+            VisibilityConfig={
+                'SampledRequestsEnabled': True,
+                'CloudWatchMetricsEnabled': True,
+                'MetricName': f'{web_acl_name}Metric'
+            },
+            Tags=[
+                {'Key': 'Environment', 'Value': environment},
+                {'Key': 'Purpose', 'Value': 'LoadBalancerProtection'}
+            ]
+        )
+        
+        return response['Summary']['ARN']
+    
+    def associate_waf_with_load_balancer(self, web_acl_arn, load_balancer_arn):
+        """Associate WAF Web ACL with load balancer"""
+        
+        self.wafv2.associate_web_acl(
+            WebACLArn=web_acl_arn,
+            ResourceArn=load_balancer_arn
+        )
+        
+        print(f"Associated WAF with load balancer: {load_balancer_arn}")
+```
+
+### Security Group Configuration
+
+```bash
+# Create security group for ALB
+aws ec2 create-security-group \
+  --group-name alb-security-group \
+  --description "Security group for Application Load Balancer" \
+  --vpc-id vpc-12345678
+
+# Allow HTTPS traffic from anywhere
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-12345678 \
+  --protocol tcp \
+  --port 443 \
+  --cidr 0.0.0.0/0
+
+# Allow HTTP traffic (for redirects)
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-12345678 \
+  --protocol tcp \
+  --port 80 \
+  --cidr 0.0.0.0/0
+
+# Create security group for backend instances
+aws ec2 create-security-group \
+  --group-name backend-from-alb \
+  --description "Allow traffic from ALB only" \
+  --vpc-id vpc-12345678
+
+# Allow traffic from ALB security group only
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-87654321 \
+  --protocol tcp \
+  --port 80 \
+  --source-group sg-12345678
+```
+
+## Cost Optimization
+
+### Load Balancer Right-Sizing
+
+```python
+class ELBCostAnalyzer:
+    def __init__(self, region='us-west-2'):
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+        self.ce = boto3.client('ce', region_name='us-east-1')  # Cost Explorer
+    
+    def analyze_load_balancer_costs(self, days=30):
+        """Analyze load balancer costs and utilization"""
+        
+        # Get all load balancers
+        load_balancers = self.elbv2.describe_load_balancers()['LoadBalancers']
+        
+        cost_analysis = []
+        
+        for lb in load_balancers:
+            lb_name = lb['LoadBalancerName']
+            lb_type = lb['Type']
+            
+            # Estimate monthly cost based on type
+            if lb_type == 'application':
+                base_cost = 16.20  # $0.0225/hour * 24 * 30
+                lcu_cost = self._estimate_lcu_costs(lb['LoadBalancerArn'], days)
+            elif lb_type == 'network':
+                base_cost = 16.20
+                lcu_cost = self._estimate_nlcu_costs(lb['LoadBalancerArn'], days)
+            else:
+                base_cost = 16.20
+                lcu_cost = 0
+            
+            total_monthly_cost = base_cost + lcu_cost
+            
+            # Check utilization
+            utilization = self._check_load_balancer_utilization(lb['LoadBalancerArn'])
+            
+            analysis = {
+                'name': lb_name,
+                'type': lb_type,
+                'monthly_cost_estimate': total_monthly_cost,
+                'utilization_score': utilization['score'],
+                'recommendations': utilization['recommendations']
+            }
+            
+            cost_analysis.append(analysis)
+        
+        return cost_analysis
+    
+    def _estimate_lcu_costs(self, lb_arn, days):
+        """Estimate Load Balancer Capacity Unit costs for ALB"""
+        # Simplified LCU calculation
+        # Actual implementation would need detailed metrics analysis
+        return 10.0  # Placeholder
+    
+    def generate_cost_report(self):
+        """Generate comprehensive cost optimization report"""
+        
+        analysis = self.analyze_load_balancer_costs()
+        
+        total_monthly_cost = sum(lb['monthly_cost_estimate'] for lb in analysis)
+        idle_lbs = [lb for lb in analysis if lb['utilization_score'] == 0]
+        underutilized_lbs = [lb for lb in analysis if 0 < lb['utilization_score'] < 25]
+        
+        report = {
+            'total_monthly_cost': total_monthly_cost,
+            'total_load_balancers': len(analysis),
+            'idle_count': len(idle_lbs),
+            'underutilized_count': len(underutilized_lbs),
+            'potential_savings': sum(lb['monthly_cost_estimate'] for lb in idle_lbs),
+            'recommendations': []
+        }
+        
+        if idle_lbs:
+            report['recommendations'].append(f"Delete {len(idle_lbs)} idle load balancers")
+        
+        if underutilized_lbs:
+            report['recommendations'].append(f"Review {len(underutilized_lbs)} underutilized load balancers for consolidation")
+        
+        return report
+```
+
+## Automation & Infrastructure as Code
+
+### Terraform Configuration
+
+```hcl
+# ALB with comprehensive configuration
+resource "aws_lb" "main" {
+  name               = "${var.application_name}-${var.environment}"
+  internal           = var.internal
+  load_balancer_type = "application"
+  security_groups    = var.security_group_ids
+  subnets            = var.subnet_ids
+
+  enable_deletion_protection = var.environment == "production"
+
+  access_logs {
+    bucket  = aws_s3_bucket.lb_logs.bucket
+    prefix  = "alb"
+    enabled = true
+  }
+
+  tags = {
+    Name        = "${var.application_name}-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_lb_target_group" "app" {
+  name     = "${var.application_name}-tg-${var.environment}"
+  port     = var.app_port
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = var.health_check_path
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 3
+  }
+
+  tags = {
+    Name        = "${var.application_name}-tg-${var.environment}"
+    Environment = var.environment
+  }
+}
+
+resource "aws_lb_listener" "app" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = var.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+}
+
+# HTTP to HTTPS redirect
+resource "aws_lb_listener" "redirect" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# CloudWatch alarms
+resource "aws_cloudwatch_metric_alarm" "high_response_time" {
+  alarm_name          = "${aws_lb.main.name}-high-response-time"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "TargetResponseTime"
+  namespace           = "AWS/ApplicationELB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "2"
+  alarm_description   = "This metric monitors ALB response time"
+  alarm_actions       = [var.sns_topic_arn]
+
+  dimensions = {
+    LoadBalancer = aws_lb.main.arn_suffix
+  }
+
+  tags = {
+    Environment = var.environment
+  }
+}
+```
+
+### CloudFormation Template
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  CertificateArn:
+    Type: String
+
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${AWS::StackName}-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: 'true'
+        - Key: access_logs.s3.bucket
+          Value: !Ref LogBucket
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-alb'
+        - Key: Environment
+          Value: !Ref Environment
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${AWS::StackName}-tg'
+      Protocol: HTTP
+      Port: 80
+      VpcId: !Ref VPCId
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetType: instance
+
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-2017-01
+
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: 443
+            StatusCode: HTTP_301
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+Outputs:
+  LoadBalancerArn:
+    Description: ARN of the load balancer
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub '${AWS::StackName}-LoadBalancerArn'
+  
+  TargetGroupArn:
+    Description: ARN of the target group
+    Value: !Ref TargetGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-TargetGroupArn'
+```
+
+## Troubleshooting & Operations
+
+### Common Issues and Solutions
+
+#### Target Health Issues
+```python
+def diagnose_target_health_issues(target_group_arn):
+    elbv2 = boto3.client('elbv2')
+    
+    # Get target health
+    response = elbv2.describe_target_health(TargetGroupArn=target_group_arn)
+    
+    issues = []
+    for target in response['TargetHealthDescriptions']:
+        target_id = target['Target']['Id']
+        health_state = target['TargetHealth']['State']
+        
+        if health_state != 'healthy':
+            reason = target['TargetHealth'].get('Reason', 'Unknown')
+            description = target['TargetHealth'].get('Description', '')
+            
+            issues.append({
+                'target_id': target_id,
+                'state': health_state,
+                'reason': reason,
+                'description': description,
+                'recommendations': _get_health_recommendations(reason, description)
+            })
+    
+    return issues
+
+def _get_health_recommendations(reason, description):
+    recommendations = []
+    
+    if reason == 'Target.Timeout':
+        recommendations.extend([
+            "Check application response time and performance",
+            "Verify health check path returns quickly",
+            "Consider increasing health check timeout"
+        ])
+    elif reason == 'Target.FailedHealthChecks':
+        recommendations.extend([
+            "Verify application is running and responding",
+            "Check security group allows health check traffic",
+            "Verify health check path returns 200 status"
+        ])
+    elif reason == 'Target.InvalidState':
+        recommendations.extend([
+            "Check if EC2 instance is running",
+            "Verify instance is in the same VPC as target group",
+            "Check if instance has proper IAM permissions"
+        ])
+    
+    return recommendations
+```
+
+#### Connection Issues
+```bash
+#!/bin/bash
+# diagnose-elb-connectivity.sh - Diagnose ELB connectivity issues
+
+ELB_DNS_NAME=$1
+TARGET_GROUP_ARN=$2
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <elb-dns-name> <target-group-arn>"
+    exit 1
+fi
+
+echo "Diagnosing connectivity for ELB: $ELB_DNS_NAME"
+
+# Test DNS resolution
+echo "=== DNS Resolution ==="
+nslookup $ELB_DNS_NAME
+dig $ELB_DNS_NAME
+
+# Test HTTP connectivity
+echo "=== HTTP Connectivity ==="
+curl -I http://$ELB_DNS_NAME
+curl -I https://$ELB_DNS_NAME
+
+# Check target health
+echo "=== Target Health ==="
+aws elbv2 describe-target-health --target-group-arn $TARGET_GROUP_ARN
+
+# Check load balancer attributes
+echo "=== Load Balancer Attributes ==="
+LB_ARN=$(aws elbv2 describe-target-groups --target-group-arns $TARGET_GROUP_ARN --query 'TargetGroups[0].LoadBalancerArns[0]' --output text)
+aws elbv2 describe-load-balancer-attributes --load-balancer-arn $LB_ARN
+
+# Check security groups
+echo "=== Security Group Analysis ==="
+SECURITY_GROUPS=$(aws elbv2 describe-load-balancers --load-balancer-arns $LB_ARN --query 'LoadBalancers[0].SecurityGroups' --output text)
+
+for sg in $SECURITY_GROUPS; do
+    echo "Security Group: $sg"
+    aws ec2 describe-security-groups --group-ids $sg --query 'SecurityGroups[0].IpPermissions'
+done
+```
+
+#### Performance Troubleshooting
+```python
+def analyze_elb_performance(load_balancer_arn, hours=24):
+    """Analyze ELB performance and identify bottlenecks"""
+    
+    cloudwatch = boto3.client('cloudwatch')
+    lb_name = load_balancer_arn.split('/')[-3]
+    
+    end_time = datetime.now()
+    start_time = end_time - timedelta(hours=hours)
+    
+    # Get key performance metrics
+    metrics = {}
+    
+    metric_queries = [
+        'RequestCount',
+        'TargetResponseTime', 
+        'ActiveConnectionCount',
+        'NewConnectionCount',
+        'ProcessedBytes',
+        'HTTPCode_Target_2XX_Count',
+        'HTTPCode_Target_4XX_Count',
+        'HTTPCode_Target_5XX_Count'
+    ]
+    
+    for metric_name in metric_queries:
+        response = cloudwatch.get_metric_statistics(
+            Namespace='AWS/ApplicationELB',
+            MetricName=metric_name,
+            Dimensions=[{'Name': 'LoadBalancer', 'Value': lb_name}],
+            StartTime=start_time,
+            EndTime=end_time,
+            Period=3600,
+            Statistics=['Average', 'Maximum', 'Sum']
+        )
+        
+        if response['Datapoints']:
+            metrics[metric_name] = response['Datapoints']
+    
+    # Analyze patterns
+    analysis = {
+        'load_balancer': lb_name,
+        'analysis_period': f"{hours} hours",
+        'performance_issues': [],
+        'recommendations': []
+    }
+    
+    # Analyze response time
+    if 'TargetResponseTime' in metrics:
+        avg_response_time = sum(dp['Average'] for dp in metrics['TargetResponseTime']) / len(metrics['TargetResponseTime'])
+        max_response_time = max(dp['Maximum'] for dp in metrics['TargetResponseTime'])
+        
+        if avg_response_time > 1.0:
+            analysis['performance_issues'].append(f"High average response time: {avg_response_time:.2f}s")
+            analysis['recommendations'].append("Optimize backend application performance")
+        
+        if max_response_time > 5.0:
+            analysis['performance_issues'].append(f"Very high peak response time: {max_response_time:.2f}s")
+            analysis['recommendations'].append("Investigate backend performance spikes")
+    
+    # Analyze error rates
+    if 'RequestCount' in metrics and 'HTTPCode_Target_5XX_Count' in metrics:
+        total_requests = sum(dp['Sum'] for dp in metrics['RequestCount'])
+        error_5xx = sum(dp['Sum'] for dp in metrics['HTTPCode_Target_5XX_Count'])
+        
+        if total_requests > 0:
+            error_rate = (error_5xx / total_requests) * 100
+            if error_rate > 1.0:
+                analysis['performance_issues'].append(f"High 5xx error rate: {error_rate:.2f}%")
+                analysis['recommendations'].append("Investigate backend application errors")
+    
+    return analysis
+```
+
+## Additional Resources
+
+### AWS Documentation
+- [Elastic Load Balancing User Guide](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/)
+- [Application Load Balancer Guide](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/)
+- [Network Load Balancer Guide](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/)
+
+### Tools & Utilities
+- **AWS CLI** - Command-line interface for ELB operations
+- **AWS Load Balancer Controller** - Kubernetes ingress controller for EKS
+- **Terraform AWS Provider** - Infrastructure as Code for ELB resources
+
+### Best Practices Guides
+- [ELB Best Practices](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/best-practices.html)
+- [Security Best Practices](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/best-practices-security.html)
+- [Monitoring Best Practices](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/load-balancer-monitoring.html)
+
+### Integration Examples
+- [ELB with Auto Scaling](https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-load-balancer.html)
+- [ELB with WAF](https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-associating-aws-resource.html)
+- [ELB with Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-elb-load-balancer.html)

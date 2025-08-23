@@ -1,6 +1,6 @@
 # AWS VPC (Virtual Private Cloud)
 
-> **Service Type:** Network Foundation | **Tier:** Essential DevOps | **Global/Regional:** Regional
+> **Service Type:** Networking & Content Delivery | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 

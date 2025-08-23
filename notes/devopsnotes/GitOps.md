@@ -2,8 +2,8 @@
 
 ## [[GitOps Fundamentals]]
 ## [[GitOps Workflow Patterns]]
-## [[ArgoCD Implementation]]
-## [[Flux Implementation]]
+## [[GitOps ArgoCD Implementation]]
+## [[GitOps Flux Implementation]]
 ## [[GitOps Repository Structure]]
 ## [[GitOps Security Model]]
 ## [[GitOps Monitoring & Observability]]

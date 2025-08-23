@@ -1,12 +1,12 @@
 # AWS EKS (Elastic Kubernetes Service)
 
-> **Service Type:** Managed Kubernetes | **Tier:** Container Services | **Global/Regional:** Regional
+> **Service Type:** Compute | **Scope:** Regional | **Serverless:** Limited
 
 ## Overview
 
 Amazon Elastic Kubernetes Service (EKS) is a fully managed Kubernetes service that makes it easy to run Kubernetes on AWS and on-premises. EKS automatically manages the availability and scalability of the Kubernetes control plane nodes responsible for scheduling containers, managing application availability, storing cluster data, and other key tasks.
 
-## DevOps Use Cases
+## DevOps & Enterprise Use Cases
 
 ### Container Orchestration at Scale
 - **Multi-tier applications** with complex microservice architectures
@@ -38,7 +38,7 @@ Amazon Elastic Kubernetes Service (EKS) is a fully managed Kubernetes service th
 - **Compliance and governance** with Open Policy Agent (OPA) Gatekeeper
 - **Cost optimization** with cluster autoscaling and Spot instances
 
-## Core Components
+## Core Architecture Components
 
 ### Control Plane
 - **API Server** - Kubernetes API endpoint managed by AWS
@@ -65,6 +65,124 @@ Amazon Elastic Kubernetes Service (EKS) is a fully managed Kubernetes service th
 - **EFS CSI Driver** - Shared file system support with Amazon EFS
 - **Cluster Autoscaler** - Automatic node scaling based on pod requirements
 - **Metrics Server** - Resource usage metrics for HPA and VPA
+
+## Service Features & Capabilities
+
+### EKS Cluster Management
+
+#### Cluster Creation Options
+- **eksctl** - Official CLI tool for EKS cluster management
+- **AWS CLI** - Native AWS command-line interface
+- **Terraform/CloudFormation** - Infrastructure as Code deployment
+- **AWS Console** - Web-based cluster management interface
+
+#### Node Group Types
+- **Managed Node Groups** - AWS-managed EC2 instances with automatic updates
+- **Self-Managed Node Groups** - Customer-managed EC2 instances for custom configurations  
+- **Fargate Profiles** - Serverless compute for running pods without managing infrastructure
+
+#### Networking Models
+- **VPC CNI** - AWS-native networking with pod IP allocation from VPC subnets
+- **Calico** - Third-party CNI with advanced network policies
+- **Flannel** - Lightweight overlay networking solution
+
+### Add-ons and Extensions
+
+```python
+class EKSAddOnManager:
+    def __init__(self, cluster_name, region='us-west-2'):
+        self.eks = boto3.client('eks', region_name=region)
+        self.cluster_name = cluster_name
+    
+    def install_addon(self, addon_name, version='latest'):
+        response = self.eks.create_addon(
+            clusterName=self.cluster_name,
+            addonName=addon_name,
+            addonVersion=version,
+            resolveConflicts='OVERWRITE'
+        )
+        return response['addon']['addonArn']
+    
+    def list_available_addons(self):
+        response = self.eks.describe_addon_versions()
+        return [addon['addonName'] for addon in response['addons']]
+    
+    def update_addon(self, addon_name, version):
+        return self.eks.update_addon(
+            clusterName=self.cluster_name,
+            addonName=addon_name,
+            addonVersion=version,
+            resolveConflicts='OVERWRITE'
+        )
+```
+
+## Configuration & Setup
+
+### Basic Cluster Setup
+
+```python
+import boto3
+from datetime import datetime
+
+class EKSClusterManager:
+    def __init__(self, region='us-west-2'):
+        self.eks = boto3.client('eks', region_name=region)
+        self.ec2 = boto3.client('ec2', region_name=region)
+        
+    def create_cluster(self, cluster_config):
+        response = self.eks.create_cluster(
+            name=cluster_config['name'],
+            version=cluster_config['version'],
+            roleArn=cluster_config['service_role_arn'],
+            resourcesVpcConfig={
+                'subnetIds': cluster_config['subnet_ids'],
+                'securityGroupIds': cluster_config.get('security_group_ids', []),
+                'endpointConfigAccess': {
+                    'privateAccess': True,
+                    'publicAccess': cluster_config.get('public_access', False),
+                    'publicAccessCidrs': cluster_config.get('public_cidrs', [])
+                }
+            },
+            kubernetesNetworkConfig={
+                'serviceIpv4Cidr': cluster_config.get('service_cidr', '172.20.0.0/16')
+            },
+            logging={
+                'enable': [
+                    {'types': ['api', 'audit', 'authenticator', 'controllerManager', 'scheduler']}
+                ]
+            },
+            encryptionConfig=[
+                {
+                    'resources': ['secrets'],
+                    'provider': {
+                        'keyArn': cluster_config.get('kms_key_arn')
+                    }
+                }
+            ],
+            tags=cluster_config.get('tags', {})
+        )
+        return response['cluster']
+```
+
+### Node Group Configuration
+
+```bash
+# Create optimized managed node group
+aws eks create-nodegroup \
+  --cluster-name production-cluster \
+  --nodegroup-name optimized-workers \
+  --subnets subnet-12345678 subnet-87654321 \
+  --instance-types m6i.large c6i.large \
+  --ami-type AL2_x86_64 \
+  --capacity-type SPOT \
+  --node-role arn:aws:iam::123456789012:role/NodeInstanceRole \
+  --scaling-config minSize=2,maxSize=100,desiredSize=5 \
+  --disk-size 50 \
+  --remote-access ec2SshKey=my-key,sourceSecurityGroups=sg-12345678 \
+  --labels Environment=production,NodeType=optimized \
+  --taints key=spot-instance,value=true,effect=NO_SCHEDULE \
+  --tags k8s.io/cluster-autoscaler/enabled=true,k8s.io/cluster-autoscaler/production-cluster=owned
+```
 
 ## Practical CLI Examples
 
@@ -2003,3 +2121,532 @@ spec:
 - **Right-sizing:** Optimize resource allocation to reduce waste
 - **Cluster Consolidation:** Consolidate workloads to improve resource utilization
 - **Green Regions:** Deploy in regions with higher renewable energy usage
+
+## Monitoring & Observability
+
+### CloudWatch Container Insights
+
+```python
+class EKSMonitoringSetup:
+    def __init__(self, cluster_name, region='us-west-2'):
+        self.cluster_name = cluster_name
+        self.region = region
+        self.cloudwatch = boto3.client('cloudwatch', region_name=region)
+    
+    def enable_container_insights(self):
+        # Deploy CloudWatch agent
+        cloudwatch_config = {
+            "agent": {
+                "region": self.region,
+                "metrics_collection_interval": 60,
+                "run_as_user": "cwagent"
+            },
+            "logs": {
+                "logs_collected": {
+                    "kubernetes": {
+                        "cluster_name": self.cluster_name,
+                        "metrics_collection_interval": 60
+                    }
+                }
+            },
+            "metrics": {
+                "namespace": "AWS/ContainerInsights/EKS",
+                "metrics_collected": {
+                    "kubernetes": {
+                        "cluster_name": self.cluster_name,
+                        "metrics_collection_interval": 60
+                    }
+                }
+            }
+        }
+        return cloudwatch_config
+    
+    def setup_cluster_alarms(self):
+        alarms = []
+        
+        # High CPU utilization alarm
+        alarms.append({
+            'AlarmName': f'EKS-{self.cluster_name}-HighCPU',
+            'ComparisonOperator': 'GreaterThanThreshold',
+            'EvaluationPeriods': 2,
+            'MetricName': 'cluster_cpu_utilization',
+            'Namespace': 'AWS/ContainerInsights/EKS',
+            'Period': 300,
+            'Statistic': 'Average',
+            'Threshold': 80.0,
+            'ActionsEnabled': True,
+            'AlarmDescription': 'EKS cluster CPU utilization high',
+            'Dimensions': [
+                {'Name': 'ClusterName', 'Value': self.cluster_name}
+            ]
+        })
+        
+        # High memory utilization alarm  
+        alarms.append({
+            'AlarmName': f'EKS-{self.cluster_name}-HighMemory',
+            'ComparisonOperator': 'GreaterThanThreshold',
+            'EvaluationPeriods': 2,
+            'MetricName': 'cluster_memory_utilization',
+            'Namespace': 'AWS/ContainerInsights/EKS',
+            'Period': 300,
+            'Statistic': 'Average',
+            'Threshold': 80.0,
+            'ActionsEnabled': True,
+            'AlarmDescription': 'EKS cluster memory utilization high'
+        })
+        
+        return alarms
+```
+
+### Prometheus and Grafana Setup
+
+```bash
+# Install Prometheus Operator with Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+helm install prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName=gp3 \
+  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
+  --set alertmanager.alertmanagerSpec.storage.volumeClaimTemplate.spec.storageClassName=gp3 \
+  --set grafana.persistence.enabled=true \
+  --set grafana.persistence.storageClassName=gp3
+
+# Configure Grafana with AWS data sources
+kubectl patch secret grafana \
+  -n monitoring \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/data/admin-password", "value": "'$(echo -n "newpassword" | base64)'"}]'
+```
+
+## Security & Compliance
+
+### Cluster Security Hardening
+
+```python
+class EKSSecurityManager:
+    def __init__(self, cluster_name, region='us-west-2'):
+        self.cluster_name = cluster_name
+        self.eks = boto3.client('eks', region_name=region)
+        
+    def enable_encryption_at_rest(self, kms_key_arn):
+        return self.eks.associate_encryption_config(
+            clusterName=self.cluster_name,
+            encryptionConfig=[
+                {
+                    'resources': ['secrets'],
+                    'provider': {
+                        'keyArn': kms_key_arn
+                    }
+                }
+            ]
+        )
+    
+    def configure_private_endpoint(self):
+        return self.eks.update_cluster_config(
+            name=self.cluster_name,
+            resourcesVpcConfig={
+                'endpointConfigAccess': {
+                    'privateAccess': True,
+                    'publicAccess': False
+                }
+            }
+        )
+    
+    def enable_audit_logging(self):
+        return self.eks.update_cluster_config(
+            name=self.cluster_name,
+            logging={
+                'enable': [
+                    {
+                        'types': ['api', 'audit', 'authenticator', 'controllerManager', 'scheduler']
+                    }
+                ]
+            }
+        )
+```
+
+### Pod Security Standards
+
+```yaml
+# Enforce restricted Pod Security Standards
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secure-workloads
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: secure-workloads
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+```
+
+## Cost Optimization
+
+### Cluster Cost Analysis
+
+```python
+class EKSCostOptimizer:
+    def __init__(self, cluster_name, region='us-west-2'):
+        self.cluster_name = cluster_name
+        self.region = region
+        self.ce = boto3.client('ce', region_name='us-east-1')  # Cost Explorer is in us-east-1
+        self.eks = boto3.client('eks', region_name=region)
+    
+    def get_cluster_costs(self, days=30):
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        
+        response = self.ce.get_cost_and_usage(
+            TimePeriod={
+                'Start': start_date,
+                'End': end_date
+            },
+            Granularity='DAILY',
+            Metrics=['BlendedCost'],
+            GroupBy=[
+                {'Type': 'DIMENSION', 'Key': 'SERVICE'},
+                {'Type': 'TAG', 'Key': f'kubernetes.io/cluster/{self.cluster_name}'}
+            ],
+            Filter={
+                'Dimensions': {
+                    'Key': 'SERVICE',
+                    'Values': ['Amazon Elastic Kubernetes Service', 'Amazon Elastic Compute Cloud - Compute']
+                }
+            }
+        )
+        return response
+    
+    def optimize_node_groups(self):
+        # Get node group utilization
+        node_groups = self.eks.list_nodegroups(clusterName=self.cluster_name)
+        
+        recommendations = []
+        for ng_name in node_groups['nodegroups']:
+            ng_details = self.eks.describe_nodegroup(
+                clusterName=self.cluster_name,
+                nodegroupName=ng_name
+            )
+            
+            current_capacity = ng_details['nodegroup']['scalingConfig']['desiredSize']
+            instance_types = ng_details['nodegroup']['instanceTypes']
+            
+            recommendations.append({
+                'nodegroup': ng_name,
+                'current_capacity': current_capacity,
+                'instance_types': instance_types,
+                'recommendation': 'Consider using Spot instances for non-critical workloads'
+            })
+        
+        return recommendations
+```
+
+### Spot Instance Integration
+
+```bash
+# Create mixed instance type node group with Spot instances
+eksctl create nodegroup \
+  --cluster production-cluster \
+  --region us-west-2 \
+  --name spot-mixed-instances \
+  --node-zones us-west-2a,us-west-2b,us-west-2c \
+  --instance-types m5.large,m5.xlarge,m4.large,c5.large,c5.xlarge \
+  --nodes-min 2 \
+  --nodes-max 20 \
+  --spot \
+  --instance-types-vCpus-mem-optimized \
+  --asg-access \
+  --external-dns-access \
+  --full-ecr-access \
+  --managed \
+  --tags Environment=production,NodeType=spot
+```
+
+## Automation & Infrastructure as Code
+
+### Terraform EKS Module
+
+```hcl
+module "eks_cluster" {
+  source = "terraform-aws-modules/eks/aws"
+  version = "~> 19.0"
+
+  cluster_name    = var.cluster_name
+  cluster_version = var.kubernetes_version
+
+  vpc_id                         = module.vpc.vpc_id
+  subnet_ids                     = module.vpc.private_subnets
+  cluster_endpoint_public_access = false
+  cluster_endpoint_private_access = true
+
+  cluster_addons = {
+    coredns = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+      configuration_values = jsonencode({
+        env = {
+          ENABLE_PREFIX_DELEGATION = "true"
+          ENABLE_POD_ENI = "true"
+        }
+      })
+    }
+    aws-ebs-csi-driver = {
+      most_recent = true
+    }
+  }
+
+  eks_managed_node_groups = {
+    system = {
+      min_size     = 2
+      max_size     = 10
+      desired_size = 3
+
+      instance_types = ["t3.medium"]
+      capacity_type  = "ON_DEMAND"
+
+      k8s_labels = {
+        Environment = var.environment
+        NodeGroup   = "system"
+      }
+
+      taints = {
+        dedicated = {
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }
+      }
+    }
+
+    application = {
+      min_size     = 1
+      max_size     = 50
+      desired_size = 5
+
+      instance_types = ["m5.large", "m5.xlarge", "m4.large"]
+      capacity_type  = "SPOT"
+
+      k8s_labels = {
+        Environment = var.environment
+        NodeGroup   = "application"
+      }
+    }
+  }
+
+  fargate_profiles = {
+    serverless = {
+      name = "serverless-workloads"
+      selectors = [
+        {
+          namespace = "serverless"
+        },
+        {
+          namespace = "batch-jobs"
+          labels = {
+            workload-type = "batch"
+          }
+        }
+      ]
+    }
+  }
+
+  # Cluster access entry
+  access_entries = {
+    admin = {
+      principal_arn     = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/AdminRole"
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
+
+  tags = {
+    Environment = var.environment
+    Terraform   = "true"
+  }
+}
+```
+
+### GitOps Integration
+
+```yaml
+# ArgoCD Application for cluster configuration
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-config
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/company/k8s-cluster-config
+    targetRevision: HEAD
+    path: clusters/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+```
+
+## Troubleshooting & Operations
+
+### Common Issues and Solutions
+
+#### Node Join Issues
+```python
+def diagnose_node_join_issues(cluster_name, region):
+    eks = boto3.client('eks', region_name=region)
+    ec2 = boto3.client('ec2', region_name=region)
+    
+    # Check cluster status
+    cluster = eks.describe_cluster(name=cluster_name)['cluster']
+    
+    issues = []
+    
+    if cluster['status'] != 'ACTIVE':
+        issues.append(f"Cluster status is {cluster['status']}, expected ACTIVE")
+    
+    # Check node groups
+    node_groups = eks.list_nodegroups(clusterName=cluster_name)['nodegroups']
+    
+    for ng_name in node_groups:
+        ng = eks.describe_nodegroup(clusterName=cluster_name, nodegroupName=ng_name)['nodegroup']
+        
+        if ng['status'] not in ['ACTIVE', 'UPDATING']:
+            issues.append(f"Node group {ng_name} status is {ng['status']}")
+        
+        # Check IAM roles
+        node_role = ng['nodeRole']
+        if not node_role:
+            issues.append(f"Node group {ng_name} missing node role")
+    
+    return issues
+```
+
+#### Pod Scheduling Issues
+```bash
+# Debug pod scheduling issues
+kubectl describe pod <pod-name> -n <namespace>
+
+# Check node resources
+kubectl describe nodes
+
+# Check pod resource requests vs available
+kubectl top nodes
+kubectl top pods --all-namespaces
+
+# Check for node taints and pod tolerations
+kubectl get nodes -o=custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+
+# View cluster events
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+#### Cluster Autoscaler Troubleshooting
+```bash
+# Check cluster autoscaler logs
+kubectl logs -n kube-system deployment/cluster-autoscaler
+
+# Verify autoscaler configuration
+kubectl get configmap cluster-autoscaler-status -n kube-system -o yaml
+
+# Check node group tags for autoscaler discovery
+aws eks describe-nodegroup \
+  --cluster-name production-cluster \
+  --nodegroup-name workers \
+  --query 'nodegroup.tags'
+```
+
+### Recovery Procedures
+
+```python
+class EKSRecoveryManager:
+    def __init__(self, cluster_name, region='us-west-2'):
+        self.cluster_name = cluster_name
+        self.eks = boto3.client('eks', region_name=region)
+        self.backup = boto3.client('backup', region_name=region)
+    
+    def backup_cluster_config(self):
+        # Backup cluster configuration
+        cluster = self.eks.describe_cluster(name=self.cluster_name)
+        node_groups = self.eks.list_nodegroups(clusterName=self.cluster_name)
+        
+        backup_data = {
+            'cluster_config': cluster['cluster'],
+            'node_groups': []
+        }
+        
+        for ng_name in node_groups['nodegroups']:
+            ng_detail = self.eks.describe_nodegroup(
+                clusterName=self.cluster_name,
+                nodegroupName=ng_name
+            )
+            backup_data['node_groups'].append(ng_detail['nodegroup'])
+        
+        # Store backup data
+        timestamp = datetime.now().isoformat()
+        backup_key = f"eks-backup/{self.cluster_name}/{timestamp}/cluster-config.json"
+        
+        return backup_data
+    
+    def restore_cluster_from_backup(self, backup_data):
+        # Implementation for cluster restoration
+        # This would involve recreating the cluster with backed up configuration
+        pass
+```
+
+## Additional Resources
+
+### AWS Documentation
+- [Amazon EKS User Guide](https://docs.aws.amazon.com/eks/latest/userguide/)
+- [EKS Best Practices Guide](https://aws.github.io/aws-eks-best-practices/)
+- [EKS Networking Guide](https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html)
+
+### Tools & Utilities
+- **eksctl** - Official CLI tool for EKS cluster management
+- **kubectl** - Kubernetes command-line tool
+- **Helm** - Package manager for Kubernetes applications
+- **ArgoCD** - Declarative GitOps continuous delivery tool
+
+### Community Resources
+- [EKS Workshops](https://www.eksworkshop.com/) - Hands-on tutorials and labs
+- [Kubernetes Documentation](https://kubernetes.io/docs/) - Official Kubernetes docs
+- [CNCF Landscape](https://landscape.cncf.io/) - Cloud Native tools ecosystem
+
+### Integration Guides
+- [EKS with Istio Service Mesh](https://aws.amazon.com/blogs/containers/getting-started-with-istio-on-amazon-eks/)
+- [EKS with AWS Load Balancer Controller](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html)
+- [EKS with Cluster Autoscaler](https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html)

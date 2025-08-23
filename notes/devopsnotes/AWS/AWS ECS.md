@@ -1,12 +1,12 @@
 # AWS ECS (Elastic Container Service)
 
-> **Service Type:** Container Orchestration | **Tier:** Container Services | **Global/Regional:** Regional
+> **Service Type:** Compute | **Scope:** Regional | **Serverless:** Limited
 
 ## Overview
 
 Amazon Elastic Container Service (ECS) is a fully managed container orchestration service that enables you to run, stop, and manage Docker containers on a cluster. ECS eliminates the need to install and operate your own container orchestration software, manage and scale a cluster of virtual machines, or schedule containers on those virtual machines.
 
-## DevOps Use Cases
+## DevOps & Enterprise Use Cases
 
 ### Microservices Architecture
 - **Service decomposition** with independent container deployments
@@ -38,7 +38,7 @@ Amazon Elastic Container Service (ECS) is a fully managed container orchestratio
 - **Gradual migration** with container-based service replacement
 - **Cloud-native transformation** with modern DevOps practices
 
-## Core Components
+## Core Architecture Components
 
 ### Clusters
 - **Logical grouping** of compute resources (EC2 instances or Fargate)
@@ -64,7 +64,9 @@ Amazon Elastic Container Service (ECS) is a fully managed container orchestratio
 - **Task placement** strategies for optimal resource utilization
 - **Network isolation** with VPC integration and security groups
 
-## Launch Types
+## Service Features & Capabilities
+
+### Launch Types
 
 ### AWS Fargate
 - **Serverless containers** with no infrastructure management
@@ -103,6 +105,286 @@ Amazon Elastic Container Service (ECS) is a fully managed container orchestratio
 - **Execution roles** for ECS agent and container runtime permissions
 - **Service-linked roles** for ECS service operations
 - **Cross-account access** for multi-account deployments
+
+## Configuration & Setup
+
+### Initial Cluster Setup
+```bash
+# Create ECS cluster with mixed capacity providers
+aws ecs create-cluster \
+  --cluster-name production-cluster \
+  --capacity-providers EC2 FARGATE FARGATE_SPOT \
+  --default-capacity-provider-strategy \
+    capacityProvider=FARGATE,weight=1 \
+    capacityProvider=FARGATE_SPOT,weight=2 \
+  --settings name=containerInsights,value=enabled \
+  --tags key=Environment,value=Production
+
+# Create IAM roles for ECS tasks
+aws iam create-role \
+  --role-name ecsTaskExecutionRole \
+  --assume-role-policy-document file://ecs-task-trust-policy.json
+
+aws iam attach-role-policy \
+  --role-name ecsTaskExecutionRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+```
+
+### Network Configuration
+```bash
+# Create security group for ECS tasks
+aws ec2 create-security-group \
+  --group-name ecs-tasks-sg \
+  --description "Security group for ECS tasks" \
+  --vpc-id vpc-12345678
+
+# Add inbound rules
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-abcdef123 \
+  --protocol tcp \
+  --port 8080 \
+  --source-group sg-loadbalancer123
+```
+
+## Enterprise Implementation Examples
+
+### Multi-Service Architecture
+```python
+import boto3
+import json
+from typing import Dict, List
+
+class EnterpriseECSManager:
+    def __init__(self, region='us-west-2'):
+        self.ecs = boto3.client('ecs', region_name=region)
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+        self.servicediscovery = boto3.client('servicediscovery', region_name=region)
+        self.logs = boto3.client('logs', region_name=region)
+    
+    def deploy_microservices_platform(self, config: Dict):
+        """Deploy complete microservices platform with ECS"""
+        
+        cluster_name = config['cluster_name']
+        services = config['services']
+        
+        # Create cluster
+        cluster_result = self.create_enterprise_cluster(cluster_name, config.get('cluster_config', {}))
+        
+        # Setup service discovery
+        namespace_id = self.setup_service_discovery(cluster_name, config['vpc_id'])
+        
+        # Create load balancer
+        alb_arn = self.create_application_load_balancer(cluster_name, config['subnets'], config['security_groups'])
+        
+        # Deploy each service
+        deployed_services = {}
+        for service_name, service_config in services.items():
+            service_arn = self.deploy_microservice(
+                cluster_name, 
+                service_name, 
+                service_config,
+                namespace_id,
+                alb_arn
+            )
+            deployed_services[service_name] = service_arn
+        
+        return {
+            'cluster': cluster_result,
+            'namespace_id': namespace_id,
+            'load_balancer': alb_arn,
+            'services': deployed_services
+        }
+    
+    def create_enterprise_cluster(self, cluster_name: str, config: Dict) -> str:
+        """Create enterprise-grade ECS cluster"""
+        
+        try:
+            response = self.ecs.create_cluster(
+                clusterName=cluster_name,
+                capacityProviders=['FARGATE', 'FARGATE_SPOT', 'EC2'],
+                defaultCapacityProviderStrategy=[
+                    {
+                        'capacityProvider': 'FARGATE',
+                        'weight': config.get('fargate_weight', 1),
+                        'base': config.get('fargate_base', 0)
+                    },
+                    {
+                        'capacityProvider': 'FARGATE_SPOT', 
+                        'weight': config.get('fargate_spot_weight', 3),
+                        'base': config.get('fargate_spot_base', 0)
+                    }
+                ],
+                settings=[
+                    {'name': 'containerInsights', 'value': 'enabled'}
+                ],
+                configuration={
+                    'executeCommandConfiguration': {
+                        'kmsKeyId': config.get('kms_key_id'),
+                        'logging': 'OVERRIDE',
+                        'logConfiguration': {
+                            'cloudWatchLogGroupName': f'/ecs/{cluster_name}/execute-command',
+                            'cloudWatchEncryptionEnabled': True
+                        }
+                    }
+                },
+                tags=[
+                    {'key': 'Environment', 'value': config.get('environment', 'production')},
+                    {'key': 'ManagedBy', 'value': 'EnterpriseECSManager'}
+                ]
+            )
+            return response['cluster']['clusterArn']
+        except Exception as e:
+            print(f"Error creating cluster: {e}")
+            raise
+    
+    def deploy_microservice(self, cluster_name: str, service_name: str, 
+                           config: Dict, namespace_id: str, alb_arn: str) -> str:
+        """Deploy individual microservice with full enterprise configuration"""
+        
+        # Create CloudWatch log group
+        log_group_name = f"/ecs/{cluster_name}/{service_name}"
+        try:
+            self.logs.create_log_group(
+                logGroupName=log_group_name,
+                kmsKeyId=config.get('kms_key_id'),
+                tags={
+                    'Application': service_name,
+                    'Cluster': cluster_name
+                }
+            )
+        except self.logs.exceptions.ResourceAlreadyExistsException:
+            pass  # Log group already exists
+        
+        # Register task definition
+        task_definition = self.create_task_definition(service_name, config, log_group_name)
+        
+        # Create target group
+        target_group_arn = self.create_target_group(service_name, config, alb_arn)
+        
+        # Create service registry
+        service_registry_arn = self.create_service_registry(service_name, namespace_id)
+        
+        # Create ECS service
+        service_response = self.ecs.create_service(
+            cluster=cluster_name,
+            serviceName=service_name,
+            taskDefinition=f"{service_name}:1",
+            desiredCount=config.get('desired_count', 2),
+            capacityProviderStrategy=config.get('capacity_provider_strategy', [
+                {'capacityProvider': 'FARGATE', 'weight': 1}
+            ]),
+            networkConfiguration={
+                'awsvpcConfiguration': {
+                    'subnets': config['subnets'],
+                    'securityGroups': config['security_groups'],
+                    'assignPublicIp': 'DISABLED'
+                }
+            },
+            loadBalancers=[{
+                'targetGroupArn': target_group_arn,
+                'containerName': f"{service_name}-container",
+                'containerPort': config.get('container_port', 8080)
+            }],
+            serviceRegistries=[{
+                'registryArn': service_registry_arn,
+                'containerName': f"{service_name}-container"
+            }],
+            deploymentConfiguration={
+                'maximumPercent': 200,
+                'minimumHealthyPercent': 50,
+                'deploymentCircuitBreaker': {
+                    'enable': True,
+                    'rollback': True
+                }
+            },
+            enableExecuteCommand=True,
+            enableLogging=True,
+            tags=[
+                {'key': 'Service', 'value': service_name},
+                {'key': 'Cluster', 'value': cluster_name}
+            ]
+        )
+        
+        return service_response['service']['serviceArn']
+```
+
+### Blue-Green Deployment Strategy
+```python
+class BlueGreenDeploymentManager:
+    def __init__(self, region='us-west-2'):
+        self.ecs = boto3.client('ecs', region_name=region)
+        self.elbv2 = boto3.client('elbv2', region_name=region)
+    
+    def execute_blue_green_deployment(self, deployment_config: Dict):
+        """Execute blue-green deployment for ECS service"""
+        
+        cluster_name = deployment_config['cluster_name']
+        service_name = deployment_config['service_name']
+        new_task_definition = deployment_config['new_task_definition']
+        
+        # Create green service
+        green_service_name = f"{service_name}-green"
+        
+        # Get current service configuration
+        current_service = self.ecs.describe_services(
+            cluster=cluster_name,
+            services=[service_name]
+        )['services'][0]
+        
+        # Create green service with new task definition
+        green_service = self.ecs.create_service(
+            cluster=cluster_name,
+            serviceName=green_service_name,
+            taskDefinition=new_task_definition,
+            desiredCount=current_service['desiredCount'],
+            capacityProviderStrategy=current_service['capacityProviderStrategy'],
+            networkConfiguration=current_service['networkConfiguration'],
+            deploymentConfiguration={
+                'maximumPercent': 100,
+                'minimumHealthyPercent': 100
+            }
+        )
+        
+        # Wait for green service to be stable
+        self.wait_for_service_stable(cluster_name, green_service_name)
+        
+        # Create temporary target group for green service
+        green_target_group = self.create_temporary_target_group(green_service_name)
+        
+        # Register green service with new target group
+        self.ecs.update_service(
+            cluster=cluster_name,
+            service=green_service_name,
+            loadBalancers=[{
+                'targetGroupArn': green_target_group,
+                'containerName': f"{service_name}-container",
+                'containerPort': 8080
+            }]
+        )
+        
+        # Perform health checks and validation
+        if self.validate_green_service(green_target_group):
+            # Switch traffic to green
+            self.switch_traffic_to_green(service_name, green_target_group)
+            
+            # Scale down blue service
+            self.ecs.update_service(
+                cluster=cluster_name,
+                service=service_name,
+                desiredCount=0
+            )
+            
+            # Rename services (blue becomes old, green becomes current)
+            return {'status': 'success', 'green_service': green_service_name}
+        else:
+            # Rollback - delete green service
+            self.ecs.delete_service(
+                cluster=cluster_name,
+                service=green_service_name,
+                force=True
+            )
+            return {'status': 'failed', 'reason': 'Health checks failed'}
+```
 
 ## Practical CLI Examples
 
@@ -998,6 +1280,802 @@ echo "Setup completed successfully!"
 echo "Use the generated *-service-config.json files to create your ECS services."
 ```
 
+## Monitoring & Observability
+
+### CloudWatch Container Insights
+```bash
+# Enable Container Insights at cluster level
+aws ecs put-cluster-capacity-providers \
+  --cluster production-cluster \
+  --settings name=containerInsights,value=enabled
+
+# Create custom CloudWatch dashboard
+aws cloudwatch put-dashboard \
+  --dashboard-name ECS-Production-Dashboard \
+  --dashboard-body file://ecs-dashboard.json
+```
+
+### Custom Metrics and Alarms
+```python
+def setup_ecs_monitoring(cluster_name, service_name):
+    cloudwatch = boto3.client('cloudwatch')
+    
+    # Create alarm for service CPU utilization
+    cloudwatch.put_metric_alarm(
+        AlarmName=f'{service_name}-HighCPU',
+        ComparisonOperator='GreaterThanThreshold',
+        EvaluationPeriods=2,
+        MetricName='CPUUtilization',
+        Namespace='AWS/ECS',
+        Period=300,
+        Statistic='Average',
+        Threshold=80.0,
+        ActionsEnabled=True,
+        AlarmActions=['arn:aws:sns:region:account:ecs-alerts'],
+        AlarmDescription=f'High CPU utilization for {service_name}',
+        Dimensions=[
+            {'Name': 'ServiceName', 'Value': service_name},
+            {'Name': 'ClusterName', 'Value': cluster_name}
+        ]
+    )
+    
+    # Create alarm for service task count
+    cloudwatch.put_metric_alarm(
+        AlarmName=f'{service_name}-TaskCount',
+        ComparisonOperator='LessThanThreshold',
+        EvaluationPeriods=1,
+        MetricName='RunningTaskCount',
+        Namespace='AWS/ECS',
+        Period=60,
+        Statistic='Average',
+        Threshold=1.0,
+        ActionsEnabled=True,
+        AlarmActions=['arn:aws:sns:region:account:ecs-alerts'],
+        AlarmDescription=f'No running tasks for {service_name}'
+    )
+```
+
+## Security & Compliance
+
+### IAM Roles and Policies
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:region:account:secret:prod/*"
+    }
+  ]
+}
+```
+
+### Network Security Configuration
+```bash
+# Create security group with least privilege
+aws ec2 create-security-group \
+  --group-name ecs-secure-tasks \
+  --description "Secure ECS task security group" \
+  --vpc-id vpc-12345678
+
+# Allow inbound only from ALB
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-ecs123 \
+  --protocol tcp \
+  --port 8080 \
+  --source-group sg-alb456
+
+# Allow outbound HTTPS for API calls
+aws ec2 authorize-security-group-egress \
+  --group-id sg-ecs123 \
+  --protocol tcp \
+  --port 443 \
+  --cidr 0.0.0.0/0
+```
+
+### Task Definition Security
+```python
+def create_secure_task_definition(service_name, config):
+    """Create task definition with security best practices"""
+    
+    task_definition = {
+        "family": service_name,
+        "networkMode": "awsvpc",
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "512",
+        "memory": "1024",
+        "executionRoleArn": f"arn:aws:iam::{account_id}:role/ecsTaskExecutionRole",
+        "taskRoleArn": f"arn:aws:iam::{account_id}:role/{service_name}TaskRole",
+        "containerDefinitions": [{
+            "name": f"{service_name}-container",
+            "image": config['image_uri'],
+            "essential": True,
+            "readonlyRootFilesystem": True,
+            "user": "1000:1000",  # Non-root user
+            "portMappings": [{
+                "containerPort": config.get('port', 8080),
+                "protocol": "tcp"
+            }],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": f"/ecs/{service_name}",
+                    "awslogs-region": "us-west-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "secrets": [{
+                "name": "DB_PASSWORD",
+                "valueFrom": f"arn:aws:secretsmanager:us-west-2:{account_id}:secret:prod/{service_name}/db:password::"
+            }],
+            "healthCheck": {
+                "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 60
+            }
+        }]
+    }
+    
+    return task_definition
+```
+
+## Cost Optimization
+
+### Fargate vs EC2 Cost Analysis
+```python
+class ECSCostOptimizer:
+    def __init__(self):
+        self.ecs = boto3.client('ecs')
+        self.pricing = boto3.client('pricing', region_name='us-east-1')
+        self.cloudwatch = boto3.client('cloudwatch')
+    
+    def analyze_service_costs(self, cluster_name, service_name, days=30):
+        """Analyze ECS service costs and provide optimization recommendations"""
+        
+        # Get service details
+        service = self.ecs.describe_services(
+            cluster=cluster_name,
+            services=[service_name]
+        )['services'][0]
+        
+        task_definition_arn = service['taskDefinition']
+        task_def = self.ecs.describe_task_definition(
+            taskDefinition=task_definition_arn
+        )['taskDefinition']
+        
+        # Extract resource requirements
+        cpu = int(task_def['cpu'])
+        memory = int(task_def['memory'])
+        
+        # Get historical metrics
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+        
+        cpu_utilization = self._get_average_metric(
+            'AWS/ECS', 'CPUUtilization', 
+            cluster_name, service_name, 
+            start_time, end_time
+        )
+        
+        memory_utilization = self._get_average_metric(
+            'AWS/ECS', 'MemoryUtilization',
+            cluster_name, service_name,
+            start_time, end_time
+        )
+        
+        # Calculate current cost (simplified Fargate pricing)
+        hourly_cost = self._calculate_fargate_cost(cpu, memory)
+        monthly_cost = hourly_cost * 24 * 30
+        
+        # Optimization recommendations
+        recommendations = []
+        
+        if cpu_utilization < 20:
+            recommended_cpu = max(256, cpu // 2)
+            potential_savings = self._calculate_fargate_cost(cpu - recommended_cpu, memory) * 24 * 30
+            recommendations.append({
+                'type': 'cpu_optimization',
+                'current_cpu': cpu,
+                'recommended_cpu': recommended_cpu,
+                'potential_monthly_savings': potential_savings
+            })
+        
+        if memory_utilization < 30:
+            recommended_memory = max(512, memory // 2)
+            potential_savings = self._calculate_fargate_cost(cpu, memory - recommended_memory) * 24 * 30
+            recommendations.append({
+                'type': 'memory_optimization',
+                'current_memory': memory,
+                'recommended_memory': recommended_memory,
+                'potential_monthly_savings': potential_savings
+            })
+        
+        # Spot instance recommendation
+        if self._is_fault_tolerant_workload(service_name):
+            spot_savings = monthly_cost * 0.7  # ~70% savings with Spot
+            recommendations.append({
+                'type': 'fargate_spot',
+                'potential_monthly_savings': spot_savings,
+                'recommendation': 'Consider using Fargate Spot for fault-tolerant workloads'
+            })
+        
+        return {
+            'service': service_name,
+            'current_monthly_cost': monthly_cost,
+            'cpu_utilization': cpu_utilization,
+            'memory_utilization': memory_utilization,
+            'recommendations': recommendations,
+            'total_potential_savings': sum(r.get('potential_monthly_savings', 0) for r in recommendations)
+        }
+```
+
+### Resource Right-Sizing Automation
+```bash
+#!/bin/bash
+# ecs-cost-optimize.sh - Automated ECS cost optimization
+
+CLUSTER_NAME=$1
+SERVICE_NAME=$2
+ENVIRONMENT=${3:-production}
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <cluster-name> <service-name> [environment]"
+    exit 1
+fi
+
+echo "Analyzing cost optimization opportunities for ${SERVICE_NAME}"
+
+# Get current task definition
+TASK_DEF_ARN=$(aws ecs describe-services \
+    --cluster ${CLUSTER_NAME} \
+    --services ${SERVICE_NAME} \
+    --query 'services[0].taskDefinition' \
+    --output text)
+
+TASK_DEF=$(aws ecs describe-task-definition \
+    --task-definition ${TASK_DEF_ARN} \
+    --query 'taskDefinition')
+
+CURRENT_CPU=$(echo "$TASK_DEF" | jq -r '.cpu')
+CURRENT_MEMORY=$(echo "$TASK_DEF" | jq -r '.memory')
+
+echo "Current resources: ${CURRENT_CPU} CPU, ${CURRENT_MEMORY} MB memory"
+
+# Get utilization metrics from CloudWatch
+CPU_UTIL=$(aws cloudwatch get-metric-statistics \
+    --namespace AWS/ECS \
+    --metric-name CPUUtilization \
+    --dimensions Name=ServiceName,Value=${SERVICE_NAME} Name=ClusterName,Value=${CLUSTER_NAME} \
+    --start-time $(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%S) \
+    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+    --period 3600 \
+    --statistics Average \
+    --query 'Datapoints[].Average' \
+    --output text | awk '{sum+=$1; count++} END {if(count>0) print sum/count; else print 0}')
+
+MEMORY_UTIL=$(aws cloudwatch get-metric-statistics \
+    --namespace AWS/ECS \
+    --metric-name MemoryUtilization \
+    --dimensions Name=ServiceName,Value=${SERVICE_NAME} Name=ClusterName,Value=${CLUSTER_NAME} \
+    --start-time $(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%S) \
+    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+    --period 3600 \
+    --statistics Average \
+    --query 'Datapoints[].Average' \
+    --output text | awk '{sum+=$1; count++} END {if(count>0) print sum/count; else print 0}')
+
+echo "Average utilization: ${CPU_UTIL}% CPU, ${MEMORY_UTIL}% memory"
+
+# Calculate optimization recommendations
+OPTIMIZED=false
+
+# CPU optimization
+if (( $(echo "$CPU_UTIL < 30" | bc -l) )); then
+    NEW_CPU=$((CURRENT_CPU / 2))
+    if [ $NEW_CPU -lt 256 ]; then
+        NEW_CPU=256
+    fi
+    echo "Recommendation: Reduce CPU from ${CURRENT_CPU} to ${NEW_CPU}"
+    OPTIMIZED=true
+else
+    NEW_CPU=$CURRENT_CPU
+fi
+
+# Memory optimization  
+if (( $(echo "$MEMORY_UTIL < 40" | bc -l) )); then
+    NEW_MEMORY=$((CURRENT_MEMORY / 2))
+    if [ $NEW_MEMORY -lt 512 ]; then
+        NEW_MEMORY=512
+    fi
+    echo "Recommendation: Reduce memory from ${CURRENT_MEMORY} to ${NEW_MEMORY}"
+    OPTIMIZED=true
+else
+    NEW_MEMORY=$CURRENT_MEMORY
+fi
+
+if [ "$OPTIMIZED" = true ]; then
+    # Create optimized task definition
+    OPTIMIZED_TASK_DEF=$(echo "$TASK_DEF" | jq --arg cpu "$NEW_CPU" --arg memory "$NEW_MEMORY" '
+        .cpu = $cpu | .memory = $memory |
+        del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy)
+    ')
+    
+    # Register new task definition
+    NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+        --cli-input-json "$OPTIMIZED_TASK_DEF" \
+        --query 'taskDefinition.taskDefinitionArn' \
+        --output text)
+    
+    echo "Created optimized task definition: $NEW_TASK_DEF_ARN"
+    
+    if [ "$ENVIRONMENT" != "production" ]; then
+        # Auto-update for non-production environments
+        echo "Updating service with optimized task definition..."
+        aws ecs update-service \
+            --cluster ${CLUSTER_NAME} \
+            --service ${SERVICE_NAME} \
+            --task-definition ${NEW_TASK_DEF_ARN}
+        
+        echo "Service updated. Monitor performance and apply to production if successful."
+    else
+        echo "Production environment detected. Manual approval required."
+        echo "To apply optimization:"
+        echo "aws ecs update-service --cluster ${CLUSTER_NAME} --service ${SERVICE_NAME} --task-definition ${NEW_TASK_DEF_ARN}"
+    fi
+else
+    echo "No optimization opportunities found. Current resource allocation appears optimal."
+fi
+```
+
+## Automation & Infrastructure as Code
+
+### CloudFormation Template
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Complete ECS Service with ALB and Service Discovery'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Description: Name of the ECS service
+  ImageURI:
+    Type: String
+    Description: Container image URI
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID
+  PrivateSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs
+  PublicSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnet IDs
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${ServiceName}-cluster'
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 3
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ServiceName
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 512
+      Memory: 1024
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Name: !Sub '${ServiceName}-container'
+          Image: !Ref ImageURI
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8080/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: ALBListener
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref TaskSecurityGroup
+          Subnets: !Ref PrivateSubnets
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: !Sub '${ServiceName}-container'
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ServiceName}-alb'
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets: !Ref PublicSubnets
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ServiceName}-tg'
+      Port: 8080
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+```
+
+### Terraform Configuration
+```hcl
+resource "aws_ecs_cluster" "app_cluster" {
+  name = "${var.app_name}-cluster"
+
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+  
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    weight           = 1
+  }
+  
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight           = 3
+  }
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = {
+    Environment = var.environment
+    Application = var.app_name
+  }
+}
+
+resource "aws_ecs_task_definition" "app_task" {
+  family                   = var.app_name
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
+  execution_role_arn       = aws_iam_role.task_execution_role.arn
+  task_role_arn           = aws_iam_role.task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "${var.app_name}-container"
+      image     = var.container_image
+      essential = true
+      
+      portMappings = [
+        {
+          containerPort = var.container_port
+          protocol      = "tcp"
+        }
+      ]
+      
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+      
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_service" "app_service" {
+  name            = var.app_name
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.app_task.arn
+  desired_count   = var.desired_count
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    security_groups  = [aws_security_group.ecs_tasks.id]
+    subnets         = var.private_subnet_ids
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app_tg.arn
+    container_name   = "${var.app_name}-container"
+    container_port   = var.container_port
+  }
+
+  deployment_configuration {
+    maximum_percent         = 200
+    minimum_healthy_percent = 50
+    
+    deployment_circuit_breaker {
+      enable   = true
+      rollback = true
+    }
+  }
+
+  depends_on = [aws_lb_listener.app_listener]
+}
+```
+
+## Troubleshooting & Operations
+
+### Common Issues and Solutions
+
+#### Task Launch Issues
+```bash
+# Check task definition issues
+aws ecs describe-task-definition --task-definition myapp:1
+
+# Check service events
+aws ecs describe-services \
+  --cluster production-cluster \
+  --services web-app \
+  --query 'services[0].events[:10]'
+
+# Check task details and errors
+aws ecs describe-tasks \
+  --cluster production-cluster \
+  --tasks $(aws ecs list-tasks --cluster production-cluster --service-name web-app --query 'taskArns[0]' --output text) \
+  --query 'tasks[0].{LastStatus:lastStatus,StopReason:stoppedReason,Containers:containers[0].{Name:name,LastStatus:lastStatus,Reason:reason}}'
+```
+
+#### Service Connectivity Issues
+```python
+def diagnose_service_connectivity(cluster_name, service_name):
+    """Diagnose ECS service connectivity issues"""
+    
+    ecs = boto3.client('ecs')
+    ec2 = boto3.client('ec2')
+    elbv2 = boto3.client('elbv2')
+    
+    # Get service details
+    service = ecs.describe_services(
+        cluster=cluster_name,
+        services=[service_name]
+    )['services'][0]
+    
+    # Get tasks
+    tasks = ecs.list_tasks(
+        cluster=cluster_name,
+        serviceName=service_name
+    )['taskArns']
+    
+    if not tasks:
+        print("❌ No running tasks found")
+        return
+    
+    task_details = ecs.describe_tasks(
+        cluster=cluster_name,
+        tasks=tasks
+    )['tasks']
+    
+    print(f"✅ Service {service_name} has {len(task_details)} running tasks")
+    
+    # Check task networking
+    for task in task_details:
+        task_arn = task['taskArn']
+        print(f"\n📋 Task: {task_arn.split('/')[-1]}")
+        
+        # Check ENI details
+        for attachment in task.get('attachments', []):
+            if attachment['type'] == 'ElasticNetworkInterface':
+                eni_id = next(detail['value'] for detail in attachment['details'] 
+                             if detail['name'] == 'networkInterfaceId')
+                
+                eni = ec2.describe_network_interfaces(
+                    NetworkInterfaceIds=[eni_id]
+                )['NetworkInterfaces'][0]
+                
+                print(f"  🔌 ENI: {eni_id}")
+                print(f"  📍 Private IP: {eni['PrivateIpAddress']}")
+                print(f"  🔒 Security Groups: {[sg['GroupId'] for sg in eni['Groups']]}")
+                
+                # Check if ENI is in correct subnet
+                subnet_id = eni['SubnetId']
+                subnet = ec2.describe_subnets(SubnetIds=[subnet_id])['Subnets'][0]
+                print(f"  🌐 Subnet: {subnet_id} (AZ: {subnet['AvailabilityZone']})")
+    
+    # Check load balancer health
+    if service.get('loadBalancers'):
+        lb_config = service['loadBalancers'][0]
+        tg_arn = lb_config['targetGroupArn']
+        
+        health = elbv2.describe_target_health(TargetGroupArn=tg_arn)
+        healthy_count = sum(1 for target in health['TargetHealthDescriptions'] 
+                          if target['TargetHealth']['State'] == 'healthy')
+        
+        print(f"\n🎯 Target Group Health: {healthy_count}/{len(health['TargetHealthDescriptions'])} healthy")
+        
+        for target in health['TargetHealthDescriptions']:
+            state = target['TargetHealth']['State']
+            reason = target['TargetHealth'].get('Reason', '')
+            print(f"  Target {target['Target']['Id']}: {state} {reason}")
+```
+
+#### Performance Debugging
+```bash
+#!/bin/bash
+# ecs-debug.sh - Debug ECS service performance issues
+
+CLUSTER_NAME=$1
+SERVICE_NAME=$2
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <cluster-name> <service-name>"
+    exit 1
+fi
+
+echo "=== ECS Service Debug Report: ${SERVICE_NAME} ==="
+
+# Service overview
+echo "📊 Service Status:"
+aws ecs describe-services \
+  --cluster ${CLUSTER_NAME} \
+  --services ${SERVICE_NAME} \
+  --query 'services[0].{Status:status,Running:runningCount,Pending:pendingCount,Desired:desiredCount}'
+
+# Recent service events
+echo -e "\n📋 Recent Service Events:"
+aws ecs describe-services \
+  --cluster ${CLUSTER_NAME} \
+  --services ${SERVICE_NAME} \
+  --query 'services[0].events[:5].[createdAt,message]' \
+  --output table
+
+# Task analysis
+echo -e "\n🔍 Task Analysis:"
+TASKS=$(aws ecs list-tasks --cluster ${CLUSTER_NAME} --service-name ${SERVICE_NAME} --query 'taskArns' --output text)
+
+for TASK in $TASKS; do
+    echo "Task: $(basename $TASK)"
+    
+    # Task status
+    aws ecs describe-tasks \
+      --cluster ${CLUSTER_NAME} \
+      --tasks $TASK \
+      --query 'tasks[0].{LastStatus:lastStatus,HealthStatus:healthStatus,CPU:cpu,Memory:memory}' \
+      --output table
+    
+    # Container status
+    aws ecs describe-tasks \
+      --cluster ${CLUSTER_NAME} \
+      --tasks $TASK \
+      --query 'tasks[0].containers[0].{Name:name,Status:lastStatus,Health:healthStatus,ExitCode:exitCode}' \
+      --output table
+done
+
+# CloudWatch metrics
+echo -e "\n📈 Performance Metrics (Last Hour):"
+END_TIME=$(date -u +%Y-%m-%dT%H:%M:%S)
+START_TIME=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S)
+
+echo "CPU Utilization:"
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ECS \
+  --metric-name CPUUtilization \
+  --dimensions Name=ServiceName,Value=${SERVICE_NAME} Name=ClusterName,Value=${CLUSTER_NAME} \
+  --start-time ${START_TIME} \
+  --end-time ${END_TIME} \
+  --period 3600 \
+  --statistics Average,Maximum \
+  --query 'Datapoints[0].{Average:Average,Maximum:Maximum}' \
+  --output table
+
+echo "Memory Utilization:"
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ECS \
+  --metric-name MemoryUtilization \
+  --dimensions Name=ServiceName,Value=${SERVICE_NAME} Name=ClusterName,Value=${CLUSTER_NAME} \
+  --start-time ${START_TIME} \
+  --end-time ${END_TIME} \
+  --period 3600 \
+  --statistics Average,Maximum \
+  --query 'Datapoints[0].{Average:Average,Maximum:Maximum}' \
+  --output table
+
+# Load balancer health
+echo -e "\n🎯 Load Balancer Health:"
+TARGET_GROUP_ARN=$(aws ecs describe-services \
+  --cluster ${CLUSTER_NAME} \
+  --services ${SERVICE_NAME} \
+  --query 'services[0].loadBalancers[0].targetGroupArn' \
+  --output text)
+
+if [ "$TARGET_GROUP_ARN" != "None" ]; then
+    aws elbv2 describe-target-health \
+      --target-group-arn ${TARGET_GROUP_ARN} \
+      --query 'TargetHealthDescriptions[].{Target:Target.Id,Port:Target.Port,State:TargetHealth.State,Reason:TargetHealth.Reason}' \
+      --output table
+fi
+
+echo -e "\n✅ Debug report completed"
+```
+
 ## Best Practices
 
 ### Container and Task Optimization
@@ -1023,3 +2101,35 @@ echo "Use the generated *-service-config.json files to create your ECS services.
 - **Spot instances:** Use Fargate Spot for fault-tolerant workloads
 - **Auto Scaling:** Implement proper auto scaling for optimal resource utilization
 - **Resource allocation:** Regularly review and optimize CPU and memory allocations
+
+## Additional Resources
+
+### AWS Documentation
+- [Amazon ECS Developer Guide](https://docs.aws.amazon.com/ecs/latest/developerguide/)
+- [ECS Task Definitions](https://docs.aws.amazon.com/ecs/latest/developerguide/task_definitions.html)
+- [ECS Services](https://docs.aws.amazon.com/ecs/latest/developerguide/ecs_services.html)
+- [AWS Fargate User Guide](https://docs.aws.amazon.com/ecs/latest/userguide/)
+
+### Tools & SDKs
+- **AWS CLI** - Command-line interface for ECS operations
+- **ECS CLI** - Simplified interface for local development and testing
+- **AWS SDKs** - Programmatic access to ECS APIs
+- **Docker Compose** - Local development with ECS integration
+
+### Container Orchestration
+- **AWS Copilot** - Application-centric CLI for containerized apps
+- **Amazon EKS** - Managed Kubernetes alternative
+- **AWS App Runner** - Fully managed container service
+- **AWS Batch** - Batch computing with containers
+
+### Best Practices Guides
+- [ECS Best Practices](https://docs.aws.amazon.com/ecs/latest/bestpracticesguide/)
+- [Container Security Best Practices](https://aws.amazon.com/blogs/containers/)
+- [ECS Cost Optimization](https://aws.amazon.com/blogs/containers/theoretical-cost-optimization/)
+- [Blue-Green Deployments with ECS](https://aws.amazon.com/blogs/compute/bluegreen-deployments-with-amazon-ecs/)
+
+### Community Resources
+- **AWS Container Roadmap** - Public roadmap for container services
+- **ECS Workshop** - Hands-on training materials
+- **AWS re:Invent Sessions** - Deep-dive technical sessions
+- **Container Blog** - Latest updates and best practices

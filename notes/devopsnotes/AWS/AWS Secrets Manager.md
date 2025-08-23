@@ -1,6 +1,6 @@
 # AWS Secrets Manager: Enterprise Security & DevOps Secret Management Platform
 
-> **Service Type:** Security & Secret Management | **Tier:** CI/CD and Automation | **Global/Regional:** Regional
+> **Service Type:** Security, Identity & Compliance | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 

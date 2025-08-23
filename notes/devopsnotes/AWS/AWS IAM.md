@@ -1,6 +1,6 @@
 # AWS IAM (Identity and Access Management)
 
-> **Service Type:** Security & Identity | **Tier:** Essential DevOps | **Global/Regional:** Global
+> **Service Type:** Security, Identity & Compliance | **Scope:** Global | **Serverless:** Yes
 
 ## Overview
 
@@ -1720,7 +1720,945 @@ if __name__ == "__main__":
 - **CloudTrail:** Trace API calls and access patterns
 - **Access Analyzer:** Find unintended external access
 
-### Enterprise Security Best Practices
+### Configuration & Setup
+
+### Basic IAM Configuration
+
+```bash
+# Create IAM user with programmatic access
+aws iam create-user \
+  --user-name developer-john \
+  --tags Key=Department,Value=Engineering Key=Role,Value=Developer
+
+# Create access keys for programmatic access
+aws iam create-access-key \
+  --user-name developer-john
+
+# Create login profile for console access
+aws iam create-login-profile \
+  --user-name developer-john \
+  --password 'TemporaryP@ssw0rd!' \
+  --password-reset-required
+
+# Add user to group
+aws iam add-user-to-group \
+  --group-name developers \
+  --user-name developer-john
+
+# Enable MFA for user
+aws iam enable-mfa-device \
+  --user-name developer-john \
+  --serial-number arn:aws:iam::123456789012:mfa/developer-john \
+  --authentication-code-1 123456 \
+  --authentication-code-2 789012
+```
+
+### Advanced Role Management
+
+```bash
+# Create execution role with trust policy
+aws iam create-role \
+  --role-name enterprise-deployment-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "codebuild.amazonaws.com"
+        },
+        "Action": "sts:AssumeRole"
+      },
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::123456789012:root"
+        },
+        "Action": "sts:AssumeRole",
+        "Condition": {
+          "StringEquals": {
+            "sts:ExternalId": "deployment-external-id"
+          },
+          "Bool": {
+            "aws:MultiFactorAuthPresent": "true"
+          }
+        }
+      }
+    ]
+  }' \
+  --description "Enterprise deployment role with MFA requirements" \
+  --max-session-duration 3600 \
+  --tags Key=Purpose,Value=Deployment Key=Environment,Value=Production
+
+# Attach managed policy to role
+aws iam attach-role-policy \
+  --role-name enterprise-deployment-role \
+  --policy-arn arn:aws:iam::aws:policy/PowerUserAccess
+
+# Create and attach permission boundary
+aws iam put-role-permissions-boundary \
+  --role-name enterprise-deployment-role \
+  --permissions-boundary arn:aws:iam::123456789012:policy/DeveloperBoundary
+
+# Create instance profile and add role
+aws iam create-instance-profile \
+  --instance-profile-name enterprise-deployment-profile
+
+aws iam add-role-to-instance-profile \
+  --instance-profile-name enterprise-deployment-profile \
+  --role-name enterprise-deployment-role
+```
+
+### Group and Permission Management
+
+```bash
+# Create groups with specific permissions
+aws iam create-group --group-name developers
+aws iam create-group --group-name devops-engineers
+aws iam create-group --group-name read-only-auditors
+
+# Create custom managed policies
+aws iam create-policy \
+  --policy-name DeveloperAccess \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ec2:Describe*",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "lambda:InvokeFunction",
+          "logs:Describe*",
+          "logs:Get*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "aws:RequestedRegion": ["us-west-2", "us-east-1"]
+          }
+        }
+      }
+    ]
+  }' \
+  --description "Developer access with region restrictions"
+
+# Attach policy to group
+aws iam attach-group-policy \
+  --group-name developers \
+  --policy-arn arn:aws:iam::123456789012:policy/DeveloperAccess
+
+# Create permission boundary policy
+aws iam create-policy \
+  --policy-name DeveloperBoundary \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ec2:*",
+          "s3:*",
+          "lambda:*",
+          "logs:*",
+          "cloudformation:*"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "aws:RequestedRegion": ["us-west-2"],
+            "ec2:ResourceTag/Environment": ["dev", "staging"]
+          }
+        }
+      },
+      {
+        "Effect": "Deny",
+        "Action": [
+          "iam:*",
+          "organizations:*",
+          "account:*"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }' \
+  --description "Permission boundary preventing privilege escalation"
+```
+
+### Cross-Account Access Setup
+
+```bash
+# Create cross-account role for audit access
+aws iam create-role \
+  --role-name audit-cross-account-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "arn:aws:iam::AUDIT-ACCOUNT-ID:root"
+        },
+        "Action": "sts:AssumeRole",
+        "Condition": {
+          "StringEquals": {
+            "sts:ExternalId": "audit-external-id-12345"
+          },
+          "IpAddress": {
+            "aws:SourceIp": ["203.0.113.0/24"]
+          }
+        }
+      }
+    ]
+  }'
+
+# Set up organization-wide service control policy
+aws organizations create-policy \
+  --name "DenyHighRiskActions" \
+  --description "Prevent high-risk actions across organization" \
+  --type SERVICE_CONTROL_POLICY \
+  --content '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Deny",
+        "Action": [
+          "organizations:LeaveOrganization",
+          "account:CloseAccount",
+          "iam:DeleteRole",
+          "iam:DeleteUser"
+        ],
+        "Resource": "*",
+        "Condition": {
+          "StringNotEquals": {
+            "aws:PrincipalTag/Department": "Security"
+          }
+        }
+      }
+    ]
+  }'
+```
+
+### Automated Credential Management
+
+```bash
+# Set up credential rotation script
+#!/bin/bash
+# rotate-access-keys.sh - Automated access key rotation
+
+USER_NAME=$1
+if [ -z "$USER_NAME" ]; then
+    echo "Usage: $0 <username>"
+    exit 1
+fi
+
+# Get current access keys
+CURRENT_KEYS=$(aws iam list-access-keys --user-name $USER_NAME --query 'AccessKeyMetadata[].AccessKeyId' --output text)
+
+# Create new access key
+NEW_KEY=$(aws iam create-access-key --user-name $USER_NAME --query 'AccessKey.AccessKeyId' --output text)
+
+echo "Created new access key: $NEW_KEY"
+echo "Please update applications with new credentials before running cleanup"
+
+# Wait for confirmation before deleting old keys
+read -p "Have you updated all applications with the new access key? (y/N) " -n 1 -r
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    for key in $CURRENT_KEYS; do
+        if [ "$key" != "$NEW_KEY" ]; then
+            aws iam delete-access-key --user-name $USER_NAME --access-key-id $key
+            echo "Deleted old access key: $key"
+        fi
+    done
+fi
+```
+
+## Enterprise Implementation Examples
+
+### Example 1: Multi-Account IAM Strategy with Centralized Identity Management
+
+**Business Requirement:** Implement centralized identity management across development, staging, and production accounts with automated role provisioning and compliance monitoring.
+
+**Implementation Steps:**
+1. **Setup Organization and Identity Center**
+   ```bash
+   # Create organization and enable AWS SSO (Identity Center)
+   aws organizations create-organization --feature-set ALL
+   
+   # Enable Identity Center
+   aws sso-admin create-instance \
+     --name "Enterprise-Identity-Center" \
+     --description "Centralized identity management for organization"
+   ```
+
+2. **Create Centralized Role Template**
+   ```python
+   # enterprise-role-provisioner.py - Automated role provisioning
+   import boto3
+   import json
+   from typing import Dict, List
+   
+   class EnterpriseRoleProvisioner:
+       def __init__(self):
+           self.iam = boto3.client('iam')
+           self.organizations = boto3.client('organizations')
+           self.sso_admin = boto3.client('sso-admin')
+           
+       def create_standardized_roles(self, account_id: str, account_type: str) -> Dict[str, str]:
+           """Create standardized roles based on account type"""
+           
+           roles_config = {
+               'development': {
+                   'DeveloperRole': {
+                       'policies': ['arn:aws:iam::aws:policy/PowerUserAccess'],
+                       'trust_policy': self._get_developer_trust_policy(),
+                       'permission_boundary': 'arn:aws:iam::{}:policy/DeveloperBoundary'.format(account_id)
+                   },
+                   'ReadOnlyRole': {
+                       'policies': ['arn:aws:iam::aws:policy/ReadOnlyAccess'],
+                       'trust_policy': self._get_readonly_trust_policy(),
+                       'permission_boundary': None
+                   }
+               },
+               'production': {
+                   'ProductionDeployerRole': {
+                       'policies': ['arn:aws:iam::{}:policy/ProductionDeployerPolicy'.format(account_id)],
+                       'trust_policy': self._get_production_trust_policy(),
+                       'permission_boundary': 'arn:aws:iam::{}:policy/ProductionBoundary'.format(account_id)
+                   },
+                   'ReadOnlyRole': {
+                       'policies': ['arn:aws:iam::aws:policy/ReadOnlyAccess'],
+                       'trust_policy': self._get_readonly_trust_policy(),
+                       'permission_boundary': None
+                   }
+               }
+           }
+           
+           created_roles = {}
+           for role_name, config in roles_config.get(account_type, {}).items():
+               role_arn = self._create_role_with_config(role_name, config, account_id)
+               created_roles[role_name] = role_arn
+               
+           return created_roles
+       
+       def _create_role_with_config(self, role_name: str, config: Dict, account_id: str) -> str:
+           """Create role with specified configuration"""
+           
+           try:
+               # Create role
+               response = self.iam.create_role(
+                   RoleName=role_name,
+                   AssumeRolePolicyDocument=json.dumps(config['trust_policy']),
+                   Description=f"Enterprise managed role for {role_name}",
+                   MaxSessionDuration=3600,
+                   PermissionsBoundary=config.get('permission_boundary'),
+                   Tags=[
+                       {'Key': 'ManagedBy', 'Value': 'Enterprise-IAM-Automation'},
+                       {'Key': 'Environment', 'Value': account_id},
+                       {'Key': 'RoleType', 'Value': role_name}
+                   ]
+               )
+               
+               # Attach policies
+               for policy_arn in config['policies']:
+                   self.iam.attach_role_policy(
+                       RoleName=role_name,
+                       PolicyArn=policy_arn
+                   )
+               
+               return response['Role']['Arn']
+               
+           except Exception as e:
+               print(f"Failed to create role {role_name}: {e}")
+               raise
+   ```
+
+**Expected Outcome:** 90% reduction in manual IAM management overhead, 100% compliance with security policies, automated role lifecycle management across all accounts.
+
+### Example 2: Zero-Trust Identity Architecture with Contextual Access Controls
+
+**Business Requirement:** Implement comprehensive zero-trust identity framework with device trust, location verification, and adaptive access policies based on risk assessment.
+
+**Implementation Steps:**
+
+1. **Deploy Zero Trust Identity Manager**
+   ```python
+   # See detailed implementation in existing code above
+   zt_manager = ZeroTrustIdentityManager()
+   
+   # Configure trust policies
+   trust_policies = {
+       'device_trust': {
+           'required_attributes': ['device_id', 'device_fingerprint', 'os_version'],
+           'certificate_required': True,
+           'compliance_score_threshold': 70
+       },
+       'location_trust': {
+           'allowed_countries': ['US', 'CA', 'GB'],
+           'allowed_ip_ranges': ['203.0.113.0/24', '198.51.100.0/24'],
+           'geofencing_enabled': True
+       }
+   }
+   ```
+
+2. **Create Adaptive Policies**
+   ```bash
+   # Deploy context-aware IAM policies
+   aws iam create-policy \
+     --policy-name "AdaptiveProductionAccess" \
+     --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "s3:GetObject",
+             "s3:ListBucket",
+             "ec2:DescribeInstances"
+           ],
+           "Resource": "*",
+           "Condition": {
+             "Bool": {
+               "aws:MultiFactorAuthPresent": "true"
+             },
+             "IpAddress": {
+               "aws:SourceIp": ["203.0.113.0/24"]
+             },
+             "StringEquals": {
+               "aws:RequestTag/DeviceVerified": "true"
+             },
+             "DateGreaterThan": {
+               "aws:CurrentTime": "08:00:00Z"
+             },
+             "DateLessThan": {
+               "aws:CurrentTime": "18:00:00Z"
+             }
+           }
+         }
+       ]
+     }'
+   ```
+
+**Expected Outcome:** 95% reduction in security incidents, real-time threat detection and response, adaptive access controls that automatically adjust based on risk context.
+
+## Monitoring & Observability
+
+### Key Metrics to Monitor
+| Metric | Description | Threshold | Action |
+|--------|-------------|-----------|--------|
+| **Failed Logins** | Authentication failure rate | Warning: >10/hour, Critical: >50/hour | Investigate potential attacks, lock accounts |
+| **Policy Violations** | Non-compliant permission usage | Warning: >5/day, Critical: >20/day | Review permissions, enforce boundaries |
+| **Unused Credentials** | Inactive access keys and users | Warning: >90 days, Critical: >180 days | Automated cleanup, security audit |
+| **Cross-Account Access** | External account access attempts | Warning: >10/day, Critical: Unauthorized accounts | Validate trust relationships, alert security team |
+
+### CloudWatch Integration
+```bash
+# Create IAM security dashboard
+aws cloudwatch put-dashboard \
+  --dashboard-name "IAM-Security-Dashboard" \
+  --dashboard-body '{
+    "widgets": [
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/IAM", "SigninFailure", "UserName", "ALL_USERS"],
+            [".", "SigninSuccess", ".", "."],
+            ["Custom/IAM", "UnusedCredentials", "AccountId", "123456789012"],
+            [".", "PolicyViolations", ".", "."]
+          ],
+          "period": 300,
+          "stat": "Sum",
+          "region": "us-east-1",
+          "title": "IAM Security Metrics"
+        }
+      }
+    ]
+  }'
+
+# Set up security alerts
+aws cloudwatch put-metric-alarm \
+  --alarm-name "IAM-High-Failed-Logins" \
+  --alarm-description "High rate of IAM authentication failures" \
+  --metric-name "SigninFailure" \
+  --namespace "AWS/IAM" \
+  --statistic Sum \
+  --period 300 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:security-alerts
+```
+
+## Cost Optimization
+
+### Pricing Model
+- **IAM Service:** No additional charges for IAM users, groups, roles, and policies
+- **AWS Identity Center:** Free for workforce identities, $0.015 per application per user per month for external applications
+- **CloudTrail Logging:** $2.00 per 100,000 events for additional data events beyond free tier
+- **AWS Config:** $0.003 per configuration item recorded, $0.001 per configuration item for rules evaluations
+
+### Cost Optimization Strategies
+```bash
+# Implement cost monitoring for IAM-related services
+aws budgets create-budget \
+  --account-id 123456789012 \
+  --budget '{
+    "BudgetName": "IAM-Security-Services-Budget",
+    "BudgetLimit": {
+      "Amount": "500",
+      "Unit": "USD"
+    },
+    "TimeUnit": "MONTHLY",
+    "BudgetType": "COST",
+    "CostFilters": {
+      "Service": ["AWS CloudTrail", "AWS Config", "Amazon CloudWatch"]
+    }
+  }'
+
+# Clean up unused IAM resources
+#!/bin/bash
+# iam-cleanup.sh - Remove unused IAM resources
+
+# Find and delete unused roles (no activity in 90 days)
+aws iam generate-service-last-accessed-details --arn arn:aws:iam::123456789012:role/* \
+  --granularity SERVICE_LEVEL \
+  --query 'JobId' --output text | \
+  xargs -I {} aws iam get-service-last-accessed-details --job-id {}
+
+# Remove unused policies (not attached to any entity)
+aws iam list-policies --scope Local --only-attached false \
+  --query 'Policies[?AttachmentCount==`0`].[PolicyName,Arn]' --output text | \
+  while read policy_name policy_arn; do
+    aws iam delete-policy --policy-arn "$policy_arn"
+    echo "Deleted unused policy: $policy_name"
+  done
+```
+
+## Automation & Infrastructure as Code
+
+### CloudFormation Template
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Enterprise IAM deployment template'
+
+Parameters:
+  OrganizationName:
+    Type: String
+    Default: MyCompany
+    Description: Organization name for resource naming
+  
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+
+Resources:
+  DeveloperGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${OrganizationName}-Developers-${Environment}'
+      ManagedPolicyArns:
+        - !Ref DeveloperPolicy
+      Path: /
+
+  DeveloperPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyName: !Sub '${OrganizationName}-DeveloperAccess-${Environment}'
+      Description: 'Managed policy for developers'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ec2:Describe*'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 'lambda:InvokeFunction'
+              - 'logs:Describe*'
+              - 'logs:Get*'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'aws:RequestedRegion': 
+                  - !Ref 'AWS::Region'
+
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${OrganizationName}-DeploymentRole-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: sts:AssumeRole
+            Condition:
+              Bool:
+                'aws:MultiFactorAuthPresent': 'true'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      PermissionsBoundary: !Ref PermissionBoundary
+      MaxSessionDuration: 3600
+
+  PermissionBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyName: !Sub '${OrganizationName}-PermissionBoundary-${Environment}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: '*'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'aws:RequestedRegion': !Ref 'AWS::Region'
+          - Effect: Deny
+            Action:
+              - 'iam:CreateRole'
+              - 'iam:DeleteRole'
+              - 'iam:CreateUser'
+              - 'iam:DeleteUser'
+              - 'organizations:*'
+            Resource: '*'
+
+Outputs:
+  DeveloperGroupArn:
+    Description: Developer group ARN
+    Value: !GetAtt DeveloperGroup.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DeveloperGroup'
+
+  DeploymentRoleArn:
+    Description: Deployment role ARN
+    Value: !GetAtt DeploymentRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DeploymentRole'
+```
+
+### Terraform Configuration
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+resource "aws_iam_group" "developers" {
+  name = "${var.organization_name}-developers-${var.environment}"
+  path = "/"
+}
+
+resource "aws_iam_policy" "developer_policy" {
+  name        = "${var.organization_name}-developer-access"
+  description = "Policy for developer access"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:Describe*",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "lambda:InvokeFunction",
+          "logs:Describe*",
+          "logs:Get*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = [var.aws_region]
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "deployment_role" {
+  name               = "${var.organization_name}-deployment-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      },
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action = "sts:AssumeRole"
+        Condition = {
+          Bool = {
+            "aws:MultiFactorAuthPresent" = "true"
+          }
+        }
+      }
+    ]
+  })
+  
+  permissions_boundary = aws_iam_policy.permission_boundary.arn
+  max_session_duration = 3600
+  
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_policy" "permission_boundary" {
+  name        = "${var.organization_name}-permission-boundary"
+  description = "Permission boundary for roles"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = [var.aws_region]
+          }
+        }
+      },
+      {
+        Effect = "Deny"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:CreateUser",
+          "iam:DeleteUser",
+          "organizations:*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+variable "organization_name" {
+  description = "Organization name"
+  type        = string
+  default     = "MyCompany"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "production"
+}
+
+output "deployment_role_arn" {
+  description = "Deployment role ARN"
+  value       = aws_iam_role.deployment_role.arn
+}
+```
+
+## Troubleshooting & Operations
+
+### Common Issues & Solutions
+
+#### Issue 1: Access Denied Errors
+**Symptoms:** Users receiving "Access Denied" when performing allowed actions
+**Cause:** Complex policy interactions, permission boundaries, or SCPs blocking access
+**Solution:**
+```bash
+# Use policy simulator to test permissions
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:user/developer-john \
+  --action-names s3:GetObject \
+  --resource-arns arn:aws:s3:::my-bucket/file.txt
+
+# Check effective permissions with Access Analyzer
+aws accessanalyzer create-analyzer \
+  --analyzer-name policy-validation-analyzer \
+  --type ACCOUNT
+
+# Validate policies for errors
+aws iam validate-policy \
+  --policy-document file://policy.json \
+  --policy-type IDENTITY_BASED
+```
+
+#### Issue 2: Role Assumption Failures
+**Symptoms:** "Cannot assume role" errors in cross-account scenarios
+**Cause:** Trust policy misconfiguration, MFA requirements, or condition failures
+**Solution:**
+```python
+import boto3
+
+def diagnose_role_assumption(role_arn, external_id=None):
+    """Diagnose role assumption issues"""
+    sts = boto3.client('sts')
+    
+    try:
+        # Test basic assumption
+        assume_role_kwargs = {
+            'RoleArn': role_arn,
+            'RoleSessionName': 'diagnostic-session'
+        }
+        
+        if external_id:
+            assume_role_kwargs['ExternalId'] = external_id
+            
+        response = sts.assume_role(**assume_role_kwargs)
+        print(f"Successfully assumed role: {role_arn}")
+        return True
+        
+    except Exception as e:
+        print(f"Role assumption failed: {e}")
+        
+        # Check trust policy
+        iam = boto3.client('iam')
+        role_name = role_arn.split('/')[-1]
+        
+        try:
+            role_response = iam.get_role(RoleName=role_name)
+            trust_policy = role_response['Role']['AssumeRolePolicyDocument']
+            print(f"Trust policy: {trust_policy}")
+            
+        except Exception as trust_error:
+            print(f"Failed to retrieve trust policy: {trust_error}")
+        
+        return False
+```
+
+### Performance Optimization
+
+#### Optimization Strategy 1: Policy Simplification and Consolidation
+- **Current State Analysis:** Audit existing policies for complexity and redundancy using AWS Config and custom scripts
+- **Optimization Steps:** Consolidate similar policies, remove unused policies, simplify complex conditions
+- **Expected Improvement:** 50% reduction in policy evaluation time, improved security posture, easier management
+
+#### Optimization Strategy 2: Access Pattern Optimization
+- **Monitoring Approach:** Use IAM Access Analyzer and CloudTrail to identify access patterns and unused permissions
+- **Tuning Parameters:** Right-size permissions based on actual usage, implement just-in-time access for sensitive operations
+- **Validation Methods:** Regular access reviews, automated compliance checking, permission usage analytics
+
+## Advanced Implementation Patterns
+
+### Multi-Region IAM Strategy
+```bash
+# Deploy IAM resources across multiple regions
+regions=("us-east-1" "us-west-2" "eu-west-1")
+
+for region in "${regions[@]}"; do
+  aws iam create-role \
+    --region $region \
+    --role-name "global-deployment-role-$region" \
+    --assume-role-policy-document file://trust-policy.json \
+    --tags Key=Region,Value=$region Key=GlobalDeployment,Value=true
+done
+```
+
+### High Availability Security Setup
+```yaml
+# HA security configuration
+SecurityConfiguration:
+  IdentityProviders:
+    Primary: AWS-Identity-Center
+    Secondary: External-SAML-Provider
+  MultiRegionReplication:
+    Enabled: true
+    Regions:
+      - us-east-1
+      - us-west-2
+  BackupStrategy:
+    PolicyBackups: Automated
+    ConfigurationBackups: Daily
+    RetentionPeriod: 90-days
+```
+
+### Disaster Recovery for IAM
+- **RTO (Recovery Time Objective):** 15 minutes for critical identity services
+- **RPO (Recovery Point Objective):** Near-zero data loss with real-time replication
+- **Backup Strategy:** Automated configuration backups, policy version control, cross-region replication
+- **Recovery Procedures:** Automated failover to secondary identity provider, emergency break-glass procedures
+
+## Integration Patterns
+
+### API Integration for External Identity Systems
+```python
+class ExternalIdentityIntegration:
+    def __init__(self, external_api_endpoint):
+        self.endpoint = external_api_endpoint
+        self.session = self._create_authenticated_session()
+        
+    def sync_user_attributes(self, user_data):
+        """Sync user attributes with external identity system"""
+        try:
+            response = self.session.post(
+                f"{self.endpoint}/users/sync",
+                json=user_data,
+                headers={'Content-Type': 'application/json'}
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"User sync failed: {e}")
+            raise
+```
+
+### Event-Driven IAM Management
+```bash
+# Set up event-driven IAM management
+aws events put-rule \
+  --name "IAM-Changes-Rule" \
+  --event-pattern '{
+    "source": ["aws.iam"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "eventSource": ["iam.amazonaws.com"],
+      "eventName": ["CreateRole", "DeleteRole", "CreateUser", "DeleteUser"]
+    }
+  }'
+
+# Add Lambda target for automated processing
+aws events put-targets \
+  --rule "IAM-Changes-Rule" \
+  --targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:123456789012:function:process-iam-changes"
+```
+
+## Best Practices Summary
+
+### Development & Deployment
+1. **Infrastructure as Code:** Deploy IAM resources using CloudFormation or Terraform with version control and peer review
+2. **Policy Testing:** Use IAM policy simulator and automated testing before deploying permission changes
+3. **Least Privilege:** Start with minimal permissions and add as needed, use permission boundaries for delegation
+4. **Regular Audits:** Implement automated compliance checking and regular access reviews
+
+### Operations & Maintenance
+1. **Monitoring Strategy:** Comprehensive logging and alerting for authentication events and permission usage
+2. **Incident Response:** Automated detection and response to suspicious IAM activity
+3. **Performance Tuning:** Regular policy optimization and cleanup of unused resources
+4. **Documentation:** Maintain comprehensive documentation of IAM architecture and procedures
+
+### Security & Governance
+1. **Zero Trust Implementation:** Never trust, always verify with continuous authentication and contextual access controls
+2. **Multi-Factor Authentication:** Enforce MFA for all human users and sensitive operations
+3. **Cross-Account Security:** Implement secure cross-account access with external IDs and condition-based policies
+4. **Automated Governance:** Use AWS Organizations and SCPs for organization-wide policy enforcement
+
+## Enterprise Security Best Practices
 - **Implement Zero Trust Architecture:** Never trust, always verify with continuous authentication
 - **Use Enterprise IAM Governance:** Automated compliance monitoring and policy optimization
 - **Deploy Adaptive Security Policies:** Context-aware access controls based on risk assessment

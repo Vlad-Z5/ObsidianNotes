@@ -1,6 +1,6 @@
 # AWS CodeDeploy: Enterprise Deployment Automation & Risk Management Platform
 
-> **Service Type:** Deployment Automation | **Tier:** CI/CD and Automation | **Global/Regional:** Regional
+> **Service Type:** Developer Tools | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 

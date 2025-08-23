@@ -1,12 +1,12 @@
 # AWS ECR (Elastic Container Registry)
 
-> **Service Type:** Container Registry | **Tier:** CI/CD and Automation | **Global/Regional:** Regional
+> **Service Type:** Compute | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 
 Amazon Elastic Container Registry (ECR) is a fully managed Docker container registry that integrates with Amazon ECS, EKS, and AWS Lambda. It provides secure, scalable, and reliable storage for container images with built-in security scanning and lifecycle management.
 
-## DevOps Use Cases
+## DevOps & Enterprise Use Cases
 
 ### Container Image Management
 - **Centralized registry** for Docker images across development teams
@@ -38,7 +38,21 @@ Amazon Elastic Container Registry (ECR) is a fully managed Docker container regi
 - **Organizational governance** with repository policies and controls
 - **Cost management** through lifecycle policies and storage optimization
 
-## Core Features
+## Core Architecture Components
+
+### Registry Infrastructure
+- **Private registry per AWS account** with regional deployment
+- **Public registry support** via Amazon ECR Public
+- **Cross-region replication** for global image distribution
+- **VPC endpoints** for private connectivity from within VPC
+
+### Authentication and Authorization
+- **IAM integration** for fine-grained access control
+- **Resource-based policies** for cross-account access
+- **Docker credential helper** for seamless authentication
+- **Temporary credentials** via AWS STS
+
+## Service Features & Capabilities
 
 ### Repository Management
 - **Private repositories** with AWS-managed security
@@ -63,6 +77,34 @@ Amazon Elastic Container Registry (ECR) is a fully managed Docker container regi
 - **ECS/EKS integration** with automatic image pulling
 - **Lambda integration** for container-based functions
 - **Third-party tools** integration via standard Docker Registry API
+
+## Configuration & Setup
+
+### Repository Creation and Management
+```bash
+# Create ECR repository with security settings
+aws ecr create-repository \
+  --repository-name my-web-app \
+  --image-scanning-configuration scanOnPush=true \
+  --encryption-configuration encryptionType=KMS,kmsKey=alias/ecr-key \
+  --image-tag-mutability IMMUTABLE \
+  --tags Key=Environment,Value=production Key=Team,Value=platform
+
+# Create public repository
+aws ecr-public create-repository \
+  --repository-name my-public-app \
+  --catalog-data repositoryDescription="Public web application"
+```
+
+### Docker Authentication Setup
+```bash
+# Configure Docker authentication
+aws ecr get-login-password --region us-west-2 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-west-2.amazonaws.com
+
+# Configure credential helper (persistent authentication)
+echo '{"credHelpers":{"123456789012.dkr.ecr.us-west-2.amazonaws.com":"ecr-login"}}' > ~/.docker/config.json
+```
 
 ## Practical CLI Examples
 
@@ -227,6 +269,122 @@ aws ecr put-replication-configuration \
 # Get replication configuration
 aws ecr describe-registry \
   --query 'replicationConfiguration'
+```
+
+## Enterprise Implementation Examples
+
+### Multi-Environment Container Pipeline
+```python
+import boto3
+import json
+from datetime import datetime
+from typing import Dict, List
+
+class EnterpriseECRManager:
+    def __init__(self, region='us-west-2'):
+        self.ecr = boto3.client('ecr', region_name=region)
+        self.sts = boto3.client('sts')
+        self.account_id = self.sts.get_caller_identity()['Account']
+        self.region = region
+    
+    def create_multi_environment_setup(self, app_name: str, environments: List[str]):
+        """Create ECR repositories for multi-environment deployment"""
+        
+        repositories = {}
+        
+        for env in environments:
+            repo_name = f"{app_name}-{env}"
+            
+            # Environment-specific configuration
+            config = self._get_environment_config(env)
+            
+            try:
+                response = self.ecr.create_repository(
+                    repositoryName=repo_name,
+                    imageScanningConfiguration={'scanOnPush': True},
+                    encryptionConfiguration={
+                        'encryptionType': 'KMS',
+                        'kmsKey': config['kms_key']
+                    },
+                    imageTagMutability=config['tag_mutability'],
+                    tags=[
+                        {'Key': 'Application', 'Value': app_name},
+                        {'Key': 'Environment', 'Value': env},
+                        {'Key': 'ManagedBy', 'Value': 'EnterpriseECRManager'}
+                    ]
+                )
+                
+                repositories[env] = response['repository']['repositoryUri']
+                
+                # Set lifecycle policy
+                self._set_environment_lifecycle_policy(repo_name, env)
+                
+                # Set repository policy for environment
+                self._set_environment_repository_policy(repo_name, env)
+                
+            except Exception as e:
+                print(f"Failed to create repository for {env}: {e}")
+        
+        return repositories
+    
+    def _get_environment_config(self, environment: str) -> Dict:
+        """Get environment-specific configuration"""
+        configs = {
+            'dev': {
+                'kms_key': 'alias/aws/ecr',
+                'tag_mutability': 'MUTABLE',
+                'retention_days': 7
+            },
+            'staging': {
+                'kms_key': 'alias/ecr-staging-key',
+                'tag_mutability': 'MUTABLE',
+                'retention_days': 30
+            },
+            'prod': {
+                'kms_key': 'alias/ecr-prod-key',
+                'tag_mutability': 'IMMUTABLE',
+                'retention_days': 90
+            }
+        }
+        return configs.get(environment, configs['dev'])
+```
+
+### Cross-Account Image Sharing
+```python
+def setup_cross_account_sharing(self, repository_name: str, trusted_accounts: List[str]):
+    """Setup secure cross-account image sharing"""
+    
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "AllowCrossAccountPull",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": [f"arn:aws:iam::{account}:root" for account in trusted_accounts]
+                },
+                "Action": [
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:BatchGetImage",
+                    "ecr:BatchCheckLayerAvailability"
+                ],
+                "Condition": {
+                    "StringEquals": {
+                        "aws:PrincipalTag/Department": ["Engineering", "DevOps"]
+                    }
+                }
+            }
+        ]
+    }
+    
+    try:
+        self.ecr.set_repository_policy(
+            repositoryName=repository_name,
+            policyText=json.dumps(policy_document)
+        )
+        print(f"Cross-account sharing configured for {repository_name}")
+    except Exception as e:
+        print(f"Failed to set repository policy: {e}")
 ```
 
 ## DevOps Automation Scripts
@@ -671,6 +829,432 @@ else
     echo "Dry run completed - would delete ${POTENTIAL_DELETIONS} images"
     echo "Run with 'false' as second parameter to actually delete images"
 fi
+```
+
+## Monitoring & Observability
+
+### CloudWatch Metrics
+```python
+def setup_ecr_monitoring(repository_name):
+    cloudwatch = boto3.client('cloudwatch')
+    
+    # Create alarm for repository size
+    cloudwatch.put_metric_alarm(
+        AlarmName=f'ECR-RepositorySize-{repository_name}',
+        ComparisonOperator='GreaterThanThreshold',
+        EvaluationPeriods=1,
+        MetricName='RepositorySizeInBytes',
+        Namespace='AWS/ECR',
+        Period=86400,  # Daily
+        Statistic='Maximum',
+        Threshold=50000000000.0,  # 50GB
+        ActionsEnabled=True,
+        AlarmActions=['arn:aws:sns:region:account:ecr-alerts'],
+        AlarmDescription='ECR repository size exceeds 50GB',
+        Dimensions=[
+            {'Name': 'RepositoryName', 'Value': repository_name}
+        ]
+    )
+```
+
+### Usage Analytics
+```bash
+# Get repository metrics
+aws ecr describe-repositories \
+  --repository-names my-app \
+  --query 'repositories[0].{Name:repositoryName,Size:repositorySizeInBytes,Images:imageCount}'
+
+# Get image scan results summary
+aws ecr describe-image-scan-findings \
+  --repository-name my-app \
+  --image-id imageTag=latest \
+  --query 'imageScanFindings.findingCounts'
+```
+
+## Security & Compliance
+
+### Image Security Policies
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RestrictToSecureBases",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "ecr:PutImage",
+      "Resource": "*",
+      "Condition": {
+        "StringNotLike": {
+          "ecr:image-tag": [
+            "ubuntu:22.04*",
+            "alpine:3.18*",
+            "python:3.11-slim*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "RequireVulnerabilityScanning",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "ecr:PutImage",
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "ecr:image-scan-complete": "false"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Access Control and Audit
+```bash
+# Enable CloudTrail for ECR API auditing
+aws cloudtrail create-trail \
+  --name ecr-audit-trail \
+  --s3-bucket-name my-audit-bucket \
+  --include-global-service-events \
+  --is-multi-region-trail \
+  --enable-log-file-validation
+
+# Set up ECR-specific event filtering
+aws logs create-log-group --log-group-name /aws/ecr/audit
+
+# Create IAM policy for least privilege ECR access
+cat > ecr-read-only-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:DescribeRepositories",
+        "ecr:DescribeImages"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+```
+
+## Cost Optimization
+
+### Storage Cost Management
+```python
+class ECRCostOptimizer:
+    def __init__(self):
+        self.ecr = boto3.client('ecr')
+        self.pricing = boto3.client('pricing', region_name='us-east-1')
+    
+    def analyze_repository_costs(self, repository_name):
+        """Analyze repository storage costs and optimization opportunities"""
+        
+        images = self.ecr.describe_images(repositoryName=repository_name)
+        
+        total_size = sum(img.get('imageSizeInBytes', 0) for img in images['imageDetails'])
+        total_images = len(images['imageDetails'])
+        
+        # Calculate monthly storage cost (approximately $0.10 per GB)
+        monthly_cost = (total_size / (1024**3)) * 0.10
+        
+        # Find optimization opportunities
+        untagged_images = [img for img in images['imageDetails'] if not img.get('imageTags')]
+        old_images = self._find_old_images(images['imageDetails'], days=30)
+        
+        potential_savings = (
+            sum(img.get('imageSizeInBytes', 0) for img in untagged_images + old_images) 
+            / (1024**3)
+        ) * 0.10
+        
+        return {
+            'total_size_gb': total_size / (1024**3),
+            'total_images': total_images,
+            'monthly_cost': monthly_cost,
+            'untagged_images': len(untagged_images),
+            'old_images': len(old_images),
+            'potential_monthly_savings': potential_savings
+        }
+```
+
+### Automated Cost Optimization
+```bash
+#!/bin/bash
+# cost-optimization.sh - Automated ECR cost optimization
+
+REPOSITORIES=$(aws ecr describe-repositories --query 'repositories[].repositoryName' --output text)
+
+for repo in $REPOSITORIES; do
+    echo "Optimizing repository: $repo"
+    
+    # Get repository size
+    SIZE=$(aws ecr describe-repositories \
+        --repository-names $repo \
+        --query 'repositories[0].repositorySizeInBytes' \
+        --output text)
+    
+    SIZE_GB=$(echo "scale=2; $SIZE / 1024 / 1024 / 1024" | bc)
+    MONTHLY_COST=$(echo "scale=2; $SIZE_GB * 0.10" | bc)
+    
+    echo "  Current size: ${SIZE_GB}GB"
+    echo "  Monthly cost: \$${MONTHLY_COST}"
+    
+    # Apply lifecycle policy if none exists
+    if ! aws ecr get-lifecycle-policy --repository-name $repo &>/dev/null; then
+        echo "  Applying lifecycle policy..."
+        
+        cat > lifecycle-policy.json << EOF
+{
+  "rules": [
+    {
+      "rulePriority": 1,
+      "description": "Keep last 10 production images",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["v", "release-"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 10
+      },
+      "action": {
+        "type": "expire"
+      }
+    },
+    {
+      "rulePriority": 2,
+      "description": "Delete untagged images after 1 day",
+      "selection": {
+        "tagStatus": "untagged",
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 1
+      },
+      "action": {
+        "type": "expire"
+      }
+    }
+  ]
+}
+EOF
+        
+        aws ecr put-lifecycle-policy \
+            --repository-name $repo \
+            --lifecycle-policy-text file://lifecycle-policy.json
+    fi
+done
+```
+
+## Automation & Infrastructure as Code
+
+### CloudFormation Template
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECR Repository with Security and Lifecycle Management'
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: Name of the application
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+  
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ApplicationName}-${Environment}'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: KMS
+        KmsKey: !Ref ECRKMSKey
+      ImageTagMutability: !If [IsProduction, IMMUTABLE, MUTABLE]
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 production images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["v", "release-"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      
+  ECRKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub 'ECR encryption key for ${ApplicationName}'
+      KeyPolicy:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+
+Outputs:
+  RepositoryURI:
+    Description: ECR Repository URI
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: !Sub '${ApplicationName}-${Environment}-ECR-URI'
+```
+
+### Terraform Configuration
+```hcl
+resource "aws_ecr_repository" "app_repository" {
+  name                 = "${var.app_name}-${var.environment}"
+  image_tag_mutability = var.environment == "production" ? "IMMUTABLE" : "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+    kms_key        = aws_kms_key.ecr_key.arn
+  }
+
+  tags = {
+    Application = var.app_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "app_policy" {
+  repository = aws_ecr_repository.app_repository.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 production images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["v", "release-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
+        description  = "Delete untagged images after 1 day"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 1
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_kms_key" "ecr_key" {
+  description = "ECR encryption key for ${var.app_name}"
+  
+  tags = {
+    Application = var.app_name
+    Purpose     = "ECR-Encryption"
+  }
+}
+```
+
+## Troubleshooting & Operations
+
+### Common Issues and Solutions
+
+#### Authentication Problems
+```bash
+# Clear Docker credentials
+docker logout
+
+# Re-authenticate with ECR
+aws ecr get-login-password --region us-west-2 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-west-2.amazonaws.com
+
+# Check IAM permissions
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:user/myuser \
+  --action-names ecr:GetAuthorizationToken ecr:BatchCheckLayerAvailability \
+  --resource-arns "*"
+```
+
+#### Image Push/Pull Failures
+```python
+def troubleshoot_ecr_operations(repository_name, image_tag):
+    """Troubleshoot common ECR operation issues"""
+    
+    ecr = boto3.client('ecr')
+    
+    # Check repository exists
+    try:
+        ecr.describe_repositories(repositoryNames=[repository_name])
+        print(f"✓ Repository {repository_name} exists")
+    except ecr.exceptions.RepositoryNotFoundException:
+        print(f"✗ Repository {repository_name} not found")
+        return
+    
+    # Check image exists
+    try:
+        response = ecr.describe_images(
+            repositoryName=repository_name,
+            imageIds=[{'imageTag': image_tag}]
+        )
+        if response['imageDetails']:
+            print(f"✓ Image {image_tag} exists")
+            image_detail = response['imageDetails'][0]
+            print(f"  Size: {image_detail.get('imageSizeInBytes', 0) / (1024*1024):.1f}MB")
+            print(f"  Pushed: {image_detail.get('imagePushedAt')}")
+        else:
+            print(f"✗ Image {image_tag} not found")
+    except Exception as e:
+        print(f"✗ Error checking image: {e}")
+    
+    # Check repository policy
+    try:
+        policy = ecr.get_repository_policy(repositoryName=repository_name)
+        print("✓ Repository policy exists")
+    except ecr.exceptions.RepositoryPolicyNotFoundException:
+        print("ⓘ No repository policy (using IAM-only access)")
+    
+    # Check scanning status
+    try:
+        scan_results = ecr.describe_image_scan_findings(
+            repositoryName=repository_name,
+            imageId={'imageTag': image_tag}
+        )
+        status = scan_results['imageScanStatus']['status']
+        print(f"✓ Scan status: {status}")
+    except ecr.exceptions.ScanNotFoundException:
+        print("ⓘ No scan results available")
 ```
 
 ## Best Practices
@@ -1871,3 +2455,33 @@ if __name__ == "__main__":
 ```
 
 This comprehensive enhancement transforms AWS ECR into an enterprise-grade container registry with advanced security scanning, governance policies, automated compliance checking, and sophisticated DevOps integration patterns.
+
+## Additional Resources
+
+### AWS Documentation
+- [Amazon ECR User Guide](https://docs.aws.amazon.com/ecr/latest/userguide/)
+- [ECR Private Registry Authentication](https://docs.aws.amazon.com/ecr/latest/userguide/registry_auth.html)
+- [ECR Image Scanning](https://docs.aws.amazon.com/ecr/latest/userguide/image-scanning.html)
+- [ECR Lifecycle Policies](https://docs.aws.amazon.com/ecr/latest/userguide/LifecyclePolicies.html)
+
+### Tools & SDKs
+- **AWS CLI** - Command-line interface for ECR operations
+- **Docker** - Container runtime and image management
+- **AWS SDKs** - Programmatic access to ECR APIs
+- **ECR Credential Helper** - Automatic Docker authentication
+
+### Security Tools
+- **Trivy** - Comprehensive vulnerability scanner
+- **Grype** - Container vulnerability scanner
+- **Docker Scout** - Docker's security scanning tool
+- **Syft** - Software Bill of Materials (SBOM) generator
+
+### Best Practices Guides
+- [Container Security Best Practices](https://aws.amazon.com/blogs/containers/amazon-ecr-enhanced-scanning/)
+- [ECR Cost Optimization](https://aws.amazon.com/blogs/containers/reduce-ecr-storage-costs/)
+- [Multi-Account ECR Strategy](https://aws.amazon.com/blogs/containers/cross-account-ecr-access/)
+
+### Community Resources
+- **AWS Containers Roadmap** - Public roadmap for container services
+- **AWS Container Days** - Regular virtual events and workshops
+- **ECS/EKS Workshop** - Hands-on container orchestration training

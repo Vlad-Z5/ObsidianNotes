@@ -1,6 +1,46 @@
-# AWS Application Discovery Service - Enterprise Migration Automation Platform
+# AWS Application Discovery Service: Enterprise Migration Intelligence Platform
 
-AWS Application Discovery Service helps enterprises plan migrations by automatically identifying on-premises applications, dependencies, and performance characteristics, enhanced with intelligent migration automation, dependency mapping, and comprehensive DevOps integration.
+> **Service Type:** Migration & Transfer | **Scope:** Regional | **Serverless:** No
+
+## Overview
+
+AWS Application Discovery Service is an advanced migration intelligence platform that enables enterprises to systematically discover, analyze, and plan the migration of complex on-premises infrastructure to AWS. It provides automated application dependency mapping, performance analysis, and intelligent migration recommendations, empowering organizations to execute large-scale migrations with reduced risk, optimized costs, and accelerated timelines.
+
+## Core Architecture Components
+
+- **Discovery Engine:** Multi-modal data collection through agents, agentless connectors, and import capabilities for comprehensive infrastructure visibility
+- **Dependency Mapping:** Automated network traffic analysis and process communication discovery for complete application relationship mapping
+- **Performance Analytics:** Real-time resource utilization monitoring and historical performance pattern analysis
+- **Migration Intelligence:** AI-driven migration strategy recommendations with cost optimization and risk assessment
+- **Application Grouping:** Machine learning-based application component identification and logical grouping
+- **Cost Calculator:** AWS pricing integration for accurate TCO analysis and ROI projections
+- **Migration Planner:** Wave-based migration planning with dependency-aware sequencing and timeline optimization
+
+## DevOps & Enterprise Use Cases
+
+### Large-Scale Enterprise Migration Planning
+- **Multi-Datacenter Discovery:** Comprehensive infrastructure discovery across global enterprise datacenters with unified reporting
+- **Application Portfolio Rationalization:** Automated application inventory analysis with modernization and retirement recommendations
+- **Migration Wave Planning:** Dependency-aware migration sequencing with parallel execution optimization
+- **Risk Assessment Automation:** Automated migration risk analysis with mitigation strategy recommendations
+
+### Cloud Migration Strategy Development
+- **6R Strategy Assessment:** Automated rehost, replatform, refactor, retire, retain, and repurchase strategy recommendations
+- **Cost-Benefit Analysis:** Comprehensive TCO analysis with AWS cost optimization recommendations
+- **Timeline Estimation:** Accurate migration timeline projections based on application complexity and dependencies
+- **Resource Right-Sizing:** Performance-based AWS instance type recommendations for cost optimization
+
+### Compliance & Governance
+- **Regulatory Compliance Mapping:** Compliance framework assessment with data sovereignty and regulatory requirement analysis
+- **Audit Trail Management:** Complete discovery and migration audit trails for regulatory compliance and enterprise governance
+- **Security Assessment:** Infrastructure security posture analysis with AWS security service recommendations
+- **Data Classification:** Automated sensitive data identification and protection requirement mapping
+
+### DevOps Pipeline Integration
+- **Continuous Discovery:** Automated recurring discovery with infrastructure change detection and migration plan updates
+- **CI/CD Integration:** Native integration with enterprise CI/CD pipelines for automated migration workflow execution
+- **Infrastructure as Code:** Automated CloudFormation and Terraform template generation for discovered applications
+- **Monitoring Integration:** CloudWatch and third-party monitoring tool integration for comprehensive migration visibility
 
 ## Enterprise Migration Automation Framework
 

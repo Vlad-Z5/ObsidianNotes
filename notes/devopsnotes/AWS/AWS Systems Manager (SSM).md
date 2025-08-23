@@ -1,6 +1,6 @@
 # AWS Systems Manager (SSM)
 
-> **Service Type:** Infrastructure Management | **Tier:** CI/CD and Automation | **Global/Regional:** Regional
+> **Service Type:** Management & Governance | **Scope:** Regional | **Serverless:** Limited
 
 ## Overview
 

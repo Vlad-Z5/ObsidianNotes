@@ -1,6 +1,6 @@
 # AWS Route 53
 
-> **Service Type:** DNS & Domain Registration | **Tier:** Essential Services | **Global/Regional:** Global
+> **Service Type:** Networking & Content Delivery | **Scope:** Global | **Serverless:** Yes
 
 ## Overview
 

@@ -1,5 +1,7 @@
 # AWS CloudTrail - Enterprise Security Monitoring & Audit Platform
 
+> **Service Type:** Security, Identity & Compliance | **Scope:** Global | **Serverless:** Yes
+
 AWS CloudTrail provides comprehensive logging and monitoring of AWS API calls, user activities, and resource changes for enterprise security, compliance, and operational intelligence. This advanced platform enables organizations to maintain detailed audit trails, detect security threats, and ensure regulatory compliance across multi-account environments.
 
 ## Enterprise CloudTrail Security Framework

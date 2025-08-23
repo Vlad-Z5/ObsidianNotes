@@ -1,6 +1,6 @@
 # AWS CodeBuild: Enterprise CI/CD Build Automation Platform
 
-> **Service Type:** CI/CD Build Service | **Tier:** CI/CD and Automation | **Global/Regional:** Regional
+> **Service Type:** Developer Tools | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 

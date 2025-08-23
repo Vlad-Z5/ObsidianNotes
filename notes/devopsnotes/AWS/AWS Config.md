@@ -1,886 +1,684 @@
-# AWS Config - Enterprise Compliance & Configuration Management
+# AWS Config: Enterprise Compliance and Configuration Management
 
-AWS Config provides continuous monitoring, assessment, and auditing of AWS resource configurations for enterprise compliance, governance, and security. This comprehensive platform enables organizations to maintain configuration baselines, automate compliance checking, and implement governance policies across multi-account environments.
+> **Service Type:** Management & Governance | **Scope:** Regional | **Serverless:** Yes
 
-## Enterprise Compliance Automation Framework
+## Overview
 
-```python
-import boto3
-import json
-import logging
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
-from dataclasses import dataclass
-from enum import Enum
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+AWS Config is a comprehensive compliance and configuration management service that provides continuous monitoring, assessment, and auditing of AWS resource configurations. It enables organizations to maintain configuration baselines, automate compliance checking, and implement governance policies across multi-account environments. Config integrates seamlessly with modern DevOps practices through automated remediation, Infrastructure as Code templates, and CI/CD pipeline compliance gates, making it essential for enterprise governance and regulatory compliance.
 
-class ComplianceStatus(Enum):
-    COMPLIANT = "COMPLIANT"
-    NON_COMPLIANT = "NON_COMPLIANT"
-    NOT_APPLICABLE = "NOT_APPLICABLE"
-    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+## Core Architecture Components
 
-class RemediationAction(Enum):
-    AUTOMATIC = "AUTOMATIC"
-    MANUAL = "MANUAL"
-    DISABLED = "DISABLED"
+- **Configuration Recorder:** Captures resource configurations and changes across all AWS services and regions
+- **Delivery Channel:** Stores configuration data and snapshots in S3 buckets with optional SNS notifications
+- **Config Rules:** Automated compliance checks that evaluate resources against predefined or custom policies
+- **Remediation Actions:** Automatic corrective actions using AWS Systems Manager documents
+- **Configuration Aggregator:** Centralized view of compliance data across multiple accounts and regions
+- **Integration Points:** Native connectivity with Security Hub, Systems Manager, CloudWatch, and third-party compliance tools
+- **Security & Compliance:** Built-in support for SOC 2, PCI DSS, HIPAA, and custom compliance frameworks with audit trails
 
-@dataclass
-class ComplianceRule:
-    rule_name: str
-    rule_arn: str
-    resource_types: List[str]
-    compliance_type: str
-    parameters: Dict[str, Any]
-    remediation_action: RemediationAction
-    severity: str
-    tags: Dict[str, str]
+## DevOps & Enterprise Use Cases
 
-@dataclass
-class ComplianceResult:
-    resource_id: str
-    resource_type: str
-    compliance_status: ComplianceStatus
-    rule_name: str
-    evaluation_time: datetime
-    annotation: Optional[str] = None
-    remediation_applied: bool = False
+### Infrastructure Automation
+- **Configuration Drift Detection:** Automatically identify and alert on infrastructure configuration changes
+- **Compliance as Code:** Version-controlled compliance policies deployed through CI/CD pipelines
+- **Resource Lifecycle Management:** Track resource provisioning, modifications, and decommissioning
+- **Environment Consistency:** Ensure consistent configurations across development, staging, and production
 
-class EnterpriseConfigManager:
-    """
-    Enterprise AWS Config manager with advanced compliance automation,
-    multi-account governance, and continuous security monitoring.
-    """
-    
-    def __init__(self, region: str = 'us-east-1'):
-        self.config_client = boto3.client('config', region_name=region)
-        self.organizations_client = boto3.client('organizations', region_name=region)
-        self.ssm_client = boto3.client('ssm', region_name=region)
-        self.sns_client = boto3.client('sns', region_name=region)
-        self.lambda_client = boto3.client('lambda', region_name=region)
-        self.region = region
-        
-        # Configure logging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        
-    def setup_enterprise_configuration_recorder(self, 
-                                               recorder_name: str = "enterprise-config-recorder",
-                                               service_role_arn: str = None,
-                                               delivery_channel_config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Set up enterprise configuration recorder with comprehensive resource tracking"""
-        
-        try:
-            # Configuration recorder setup
-            configuration_recorder = {
-                'name': recorder_name,
-                'roleARN': service_role_arn,
-                'recordingGroup': {
-                    'allSupported': True,
-                    'includeGlobalResourceTypes': True,
-                    'resourceTypes': [],
-                    'exclusionByResourceTypes': {
-                        'resourceTypes': []
-                    },
-                    'recordingModeOverrides': [
-                        {
-                            'resourceTypes': ['AWS::EC2::Instance'],
-                            'recordingFrequency': 'CONTINUOUS'
-                        },
-                        {
-                            'resourceTypes': ['AWS::S3::Bucket'],
-                            'recordingFrequency': 'DAILY'
-                        }
-                    ]
-                },
-                'recordingMode': {
-                    'recordingFrequency': 'CONTINUOUS',
-                    'recordingModeOverrides': []
-                }
-            }
-            
-            # Create or update configuration recorder
-            response = self.config_client.put_configuration_recorder(
-                ConfigurationRecorder=configuration_recorder
-            )
-            
-            # Setup delivery channel if provided
-            if delivery_channel_config:
-                delivery_channel = {
-                    'name': f"{recorder_name}-delivery-channel",
-                    's3BucketName': delivery_channel_config['bucket_name'],
-                    's3KeyPrefix': delivery_channel_config.get('key_prefix', 'config/'),
-                    'snsTopicARN': delivery_channel_config.get('sns_topic_arn'),
-                    'configSnapshotDeliveryProperties': {
-                        'deliveryFrequency': delivery_channel_config.get('delivery_frequency', 'TwentyFour_Hours')
-                    }
-                }
-                
-                self.config_client.put_delivery_channel(
-                    DeliveryChannel=delivery_channel
-                )
-            
-            # Start configuration recorder
-            self.config_client.start_configuration_recorder(
-                ConfigurationRecorderName=recorder_name
-            )
-            
-            self.logger.info(f"Enterprise configuration recorder '{recorder_name}' setup completed")
-            return {
-                'status': 'success',
-                'recorder_name': recorder_name,
-                'recording_status': 'STARTED'
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Failed to setup configuration recorder: {str(e)}")
-            raise
-    
-    def deploy_enterprise_compliance_rules(self, 
-                                         compliance_framework: str = "SOC2") -> List[ComplianceResult]:
-        """Deploy comprehensive compliance rules based on enterprise frameworks"""
-        
-        compliance_rules = self._get_compliance_rules_for_framework(compliance_framework)
-        deployment_results = []
-        
-        for rule in compliance_rules:
-            try:
-                # Deploy Config rule
-                config_rule = {
-                    'ConfigRuleName': rule.rule_name,
-                    'Description': f"Enterprise compliance rule for {compliance_framework}",
-                    'Source': {
-                        'Owner': 'AWS',
-                        'SourceIdentifier': rule.rule_arn
-                    },
-                    'InputParameters': json.dumps(rule.parameters) if rule.parameters else None,
-                    'EvaluationModes': [
-                        {
-                            'Mode': 'DETECTIVE'
-                        }
-                    ]
-                }
-                
-                if rule.resource_types:
-                    config_rule['Scope'] = {
-                        'ComplianceResourceTypes': rule.resource_types
-                    }
-                
-                self.config_client.put_config_rule(ConfigRule=config_rule)
-                
-                # Setup remediation if automatic
-                if rule.remediation_action == RemediationAction.AUTOMATIC:
-                    self._setup_automatic_remediation(rule)
-                
-                deployment_results.append(
-                    ComplianceResult(
-                        resource_id=rule.rule_name,
-                        resource_type="AWS::Config::ConfigRule",
-                        compliance_status=ComplianceStatus.COMPLIANT,
-                        rule_name=rule.rule_name,
-                        evaluation_time=datetime.utcnow(),
-                        annotation="Rule deployed successfully"
-                    )
-                )
-                
-                self.logger.info(f"Deployed compliance rule: {rule.rule_name}")
-                
-            except Exception as e:
-                self.logger.error(f"Failed to deploy rule {rule.rule_name}: {str(e)}")
-                deployment_results.append(
-                    ComplianceResult(
-                        resource_id=rule.rule_name,
-                        resource_type="AWS::Config::ConfigRule",
-                        compliance_status=ComplianceStatus.NON_COMPLIANT,
-                        rule_name=rule.rule_name,
-                        evaluation_time=datetime.utcnow(),
-                        annotation=f"Deployment failed: {str(e)}"
-                    )
-                )
-        
-        return deployment_results
-    
-    def _get_compliance_rules_for_framework(self, framework: str) -> List[ComplianceRule]:
-        """Get compliance rules for specific framework"""
-        
-        rules_map = {
-            "SOC2": [
-                ComplianceRule(
-                    rule_name="encrypted-volumes",
-                    rule_arn="ENCRYPTED_VOLUMES",
-                    resource_types=["AWS::EC2::Volume"],
-                    compliance_type="ENCRYPTION",
-                    parameters={},
-                    remediation_action=RemediationAction.AUTOMATIC,
-                    severity="HIGH",
-                    tags={"Framework": "SOC2", "Control": "CC6.1"}
-                ),
-                ComplianceRule(
-                    rule_name="s3-bucket-public-access-prohibited",
-                    rule_arn="S3_BUCKET_PUBLIC_ACCESS_PROHIBITED",
-                    resource_types=["AWS::S3::Bucket"],
-                    compliance_type="SECURITY",
-                    parameters={},
-                    remediation_action=RemediationAction.AUTOMATIC,
-                    severity="CRITICAL",
-                    tags={"Framework": "SOC2", "Control": "CC6.3"}
-                ),
-                ComplianceRule(
-                    rule_name="cloudtrail-enabled",
-                    rule_arn="CLOUD_TRAIL_ENABLED",
-                    resource_types=["AWS::CloudTrail::Trail"],
-                    compliance_type="LOGGING",
-                    parameters={},
-                    remediation_action=RemediationAction.MANUAL,
-                    severity="HIGH",
-                    tags={"Framework": "SOC2", "Control": "CC7.1"}
-                )
-            ],
-            "PCI-DSS": [
-                ComplianceRule(
-                    rule_name="rds-encryption-enabled",
-                    rule_arn="RDS_STORAGE_ENCRYPTED",
-                    resource_types=["AWS::RDS::DBInstance"],
-                    compliance_type="ENCRYPTION",
-                    parameters={},
-                    remediation_action=RemediationAction.MANUAL,
-                    severity="HIGH",
-                    tags={"Framework": "PCI-DSS", "Control": "3.4"}
-                ),
-                ComplianceRule(
-                    rule_name="vpc-flow-logs-enabled",
-                    rule_arn="VPC_FLOW_LOGS_ENABLED",
-                    resource_types=["AWS::EC2::VPC"],
-                    compliance_type="MONITORING",
-                    parameters={},
-                    remediation_action=RemediationAction.AUTOMATIC,
-                    severity="MEDIUM",
-                    tags={"Framework": "PCI-DSS", "Control": "10.1"}
-                )
-            ],
-            "HIPAA": [
-                ComplianceRule(
-                    rule_name="s3-bucket-ssl-requests-only",
-                    rule_arn="S3_BUCKET_SSL_REQUESTS_ONLY",
-                    resource_types=["AWS::S3::Bucket"],
-                    compliance_type="ENCRYPTION",
-                    parameters={},
-                    remediation_action=RemediationAction.AUTOMATIC,
-                    severity="HIGH",
-                    tags={"Framework": "HIPAA", "Control": "164.312(e)(1)"}
-                ),
-                ComplianceRule(
-                    rule_name="cloudwatch-log-group-encrypted",
-                    rule_arn="CLOUDWATCH_LOG_GROUP_ENCRYPTED",
-                    resource_types=["AWS::Logs::LogGroup"],
-                    compliance_type="ENCRYPTION",
-                    parameters={},
-                    remediation_action=RemediationAction.AUTOMATIC,
-                    severity="HIGH",
-                    tags={"Framework": "HIPAA", "Control": "164.312(a)(2)(iv)"}
-                )
-            ]
-        }
-        
-        return rules_map.get(framework, [])
-    
-    def _setup_automatic_remediation(self, rule: ComplianceRule) -> None:
-        """Setup automatic remediation for compliance rule"""
-        
-        remediation_configs = {
-            "encrypted-volumes": {
-                "TargetType": "SSM_DOCUMENT",
-                "TargetId": "AutomationCreateEncryptedCopy",
-                "ParameterValueMap": {
-                    "AutomationAssumeRole": {"StaticValue": "arn:aws:iam::123456789012:role/ConfigRemediationRole"},
-                    "VolumeId": {"ResourceValue": "RESOURCE_ID"}
-                }
-            },
-            "s3-bucket-public-access-prohibited": {
-                "TargetType": "SSM_DOCUMENT",
-                "TargetId": "AWSConfigRemediation-RemoveS3BucketPublicAccess",
-                "ParameterValueMap": {
-                    "AutomationAssumeRole": {"StaticValue": "arn:aws:iam::123456789012:role/ConfigRemediationRole"},
-                    "S3BucketName": {"ResourceValue": "RESOURCE_ID"}
-                }
-            }
-        }
-        
-        if rule.rule_name in remediation_configs:
-            remediation_config = remediation_configs[rule.rule_name]
-            
-            try:
-                self.config_client.put_remediation_configurations(
-                    RemediationConfigurations=[
-                        {
-                            'ConfigRuleName': rule.rule_name,
-                            'TargetType': remediation_config["TargetType"],
-                            'TargetId': remediation_config["TargetId"],
-                            'TargetVersion': '1',
-                            'Parameters': {
-                                key: {
-                                    'StaticValue': value.get('StaticValue'),
-                                    'ResourceValue': value.get('ResourceValue')
-                                } for key, value in remediation_config["ParameterValueMap"].items()
-                            },
-                            'Automatic': True,
-                            'ExecutionControls': {
-                                'SsmControls': {
-                                    'ConcurrentExecutionRatePercentage': 10,
-                                    'ErrorPercentage': 5
-                                }
-                            }
-                        }
-                    ]
-                )
-                
-                self.logger.info(f"Automatic remediation configured for rule: {rule.rule_name}")
-                
-            except Exception as e:
-                self.logger.error(f"Failed to setup remediation for {rule.rule_name}: {str(e)}")
+### CI/CD Integration
+- **Compliance Gates:** Block deployments that don't meet compliance requirements
+- **Pre-deployment Validation:** Validate infrastructure changes against compliance policies before deployment
+- **Automated Testing:** Integration with infrastructure testing frameworks for compliance validation
+- **Rollback Automation:** Automatic rollback of non-compliant changes with audit trail
 
-class ComplianceOrchestrator:
-    """
-    Advanced compliance orchestration with multi-account governance,
-    continuous monitoring, and automated reporting.
-    """
-    
-    def __init__(self, master_account_id: str):
-        self.config_manager = EnterpriseConfigManager()
-        self.master_account_id = master_account_id
-        
-    def setup_organization_compliance(self, 
-                                    organization_unit_ids: List[str],
-                                    compliance_frameworks: List[str]) -> Dict[str, Any]:
-        """Setup compliance across organization units"""
-        
-        try:
-            # Enable Config across organization
-            aggregator_config = {
-                'ConfigurationAggregatorName': 'enterprise-compliance-aggregator',
-                'OrganizationAggregationSource': {
-                    'RoleArn': f'arn:aws:iam::{self.master_account_id}:role/aws-config-role',
-                    'AwsRegions': ['us-east-1', 'us-west-2', 'eu-west-1'],
-                    'AllAwsRegions': False
-                }
-            }
-            
-            self.config_manager.config_client.put_configuration_aggregator(
-                ConfigurationAggregator=aggregator_config
-            )
-            
-            # Deploy compliance rules organization-wide
-            deployment_results = {}
-            for framework in compliance_frameworks:
-                results = self.config_manager.deploy_enterprise_compliance_rules(framework)
-                deployment_results[framework] = results
-            
-            # Setup compliance dashboard
-            dashboard_config = self._create_compliance_dashboard(compliance_frameworks)
-            
-            return {
-                'status': 'success',
-                'aggregator': 'enterprise-compliance-aggregator',
-                'frameworks_deployed': compliance_frameworks,
-                'deployment_results': deployment_results,
-                'dashboard_config': dashboard_config
-            }
-            
-        except Exception as e:
-            logging.error(f"Failed to setup organization compliance: {str(e)}")
-            raise
-    
-    def _create_compliance_dashboard(self, frameworks: List[str]) -> Dict[str, Any]:
-        """Create CloudWatch dashboard for compliance monitoring"""
-        
-        dashboard_body = {
-            "widgets": [
-                {
-                    "type": "metric",
-                    "properties": {
-                        "metrics": [
-                            ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "encrypted-volumes"],
-                            [".", ".", ".", "s3-bucket-public-access-prohibited"],
-                            [".", ".", ".", "cloudtrail-enabled"]
-                        ],
-                        "period": 300,
-                        "stat": "Average",
-                        "region": self.config_manager.region,
-                        "title": "Compliance Status Overview"
-                    }
-                },
-                {
-                    "type": "log",
-                    "properties": {
-                        "query": "SOURCE '/aws/config/configuration-history'\n| fields @timestamp, resourceId, resourceType, configurationItemStatus\n| filter configurationItemStatus = \"ResourceDeleted\"\n| stats count() by resourceType\n| sort count desc",
-                        "region": self.config_manager.region,
-                        "title": "Resource Deletion Tracking"
-                    }
-                }
-            ]
-        }
-        
-        return {
-            'dashboard_name': 'Enterprise-Compliance-Dashboard',
-            'dashboard_body': json.dumps(dashboard_body)
-        }
+### Security & Compliance
+- **Multi-Framework Support:** SOC 2, PCI DSS, HIPAA, NIST, and custom compliance framework automation
+- **Continuous Monitoring:** Real-time compliance monitoring with immediate violation detection
+- **Automated Remediation:** Self-healing infrastructure that automatically corrects compliance violations
+- **Audit Trail Management:** Comprehensive logging and reporting for regulatory compliance
 
-# DevOps Integration Pipeline
-class ConfigDevOpsPipeline:
-    """
-    DevOps pipeline integration for Config with infrastructure automation,
-    compliance gates, and continuous governance.
-    """
-    
-    def __init__(self, pipeline_name: str):
-        self.pipeline_name = pipeline_name
-        self.config_manager = EnterpriseConfigManager()
-        
-    def create_compliance_gate(self, 
-                             required_rules: List[str],
-                             minimum_compliance_score: float = 0.95) -> Dict[str, Any]:
-        """Create compliance gate for deployment pipeline"""
-        
-        gate_config = {
-            'gate_name': f"{self.pipeline_name}-compliance-gate",
-            'required_rules': required_rules,
-            'minimum_score': minimum_compliance_score,
-            'evaluation_logic': """
-            import boto3
-            import json
-            
-            def lambda_handler(event, context):
-                config_client = boto3.client('config')
-                
-                # Get compliance status for required rules
-                compliance_results = []
-                for rule_name in required_rules:
-                    try:
-                        response = config_client.get_compliance_details_by_config_rule(
-                            ConfigRuleName=rule_name
-                        )
-                        
-                        compliant_count = 0
-                        total_count = 0
-                        
-                        for result in response['EvaluationResults']:
-                            total_count += 1
-                            if result['ComplianceType'] == 'COMPLIANT':
-                                compliant_count += 1
-                        
-                        compliance_score = compliant_count / total_count if total_count > 0 else 0
-                        compliance_results.append({
-                            'rule_name': rule_name,
-                            'compliance_score': compliance_score,
-                            'compliant_resources': compliant_count,
-                            'total_resources': total_count
-                        })
-                        
-                    except Exception as e:
-                        compliance_results.append({
-                            'rule_name': rule_name,
-                            'error': str(e),
-                            'compliance_score': 0
-                        })
-                
-                # Calculate overall compliance score
-                valid_scores = [r['compliance_score'] for r in compliance_results if 'error' not in r]
-                overall_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0
-                
-                # Determine gate status
-                gate_passed = overall_score >= minimum_compliance_score
-                
-                return {
-                    'statusCode': 200,
-                    'body': json.dumps({
-                        'gate_passed': gate_passed,
-                        'overall_compliance_score': overall_score,
-                        'minimum_required_score': minimum_compliance_score,
-                        'rule_results': compliance_results,
-                        'recommendation': 'Deploy approved' if gate_passed else 'Deploy blocked - fix compliance issues'
-                    })
-                }
-            """
-        }
-        
-        return gate_config
+### Monitoring & Operations
+- **Configuration Analytics:** Deep insights into resource configuration patterns and trends
+- **Cost Optimization:** Identify misconfigured resources contributing to unnecessary costs
+- **Security Posture Management:** Continuous assessment of security configuration compliance
+- **Operational Dashboards:** Real-time visibility into compliance status across the entire infrastructure
 
-# CLI Usage Examples
-if __name__ == "__main__":
-    # Initialize enterprise Config manager
-    config_mgr = EnterpriseConfigManager(region='us-east-1')
-    
-    # Setup configuration recorder
-    recorder_config = {
-        'bucket_name': 'enterprise-config-bucket',
-        'key_prefix': 'config-data/',
-        'sns_topic_arn': 'arn:aws:sns:us-east-1:123456789012:config-notifications',
-        'delivery_frequency': 'TwentyFour_Hours'
+## Service Features & Capabilities
+
+### Configuration Management
+- **Resource Discovery:** Automatic discovery and inventory of AWS resources across all regions
+- **Change Tracking:** Detailed tracking of who, what, when, and how resources were changed
+- **Configuration Snapshots:** Point-in-time configuration captures for audit and rollback purposes
+- **Relationship Mapping:** Understand dependencies and relationships between AWS resources
+
+### Compliance Automation
+- **Managed Rules:** Pre-built rules for common compliance requirements and best practices
+- **Custom Rules:** Lambda-based custom rules for organization-specific compliance requirements
+- **Conformance Packs:** Pre-configured rule sets for compliance frameworks like PCI DSS and SOC 2
+- **Organization Rules:** Deploy compliance rules across AWS Organizations for centralized governance
+
+### Remediation Features
+- **Automatic Remediation:** Self-healing infrastructure using Systems Manager automation documents
+- **Manual Remediation:** Guided remediation workflows with step-by-step instructions
+- **Remediation Tracking:** Monitor remediation success rates and failure patterns
+- **Custom Remediation:** Create organization-specific remediation actions for unique requirements
+
+## Configuration & Setup
+
+### Basic Configuration
+```bash
+# Create configuration recorder
+aws configservice put-configuration-recorder \
+  --configuration-recorder '{
+    "name": "enterprise-config-recorder",
+    "roleARN": "arn:aws:iam::123456789012:role/aws-config-role",
+    "recordingGroup": {
+      "allSupported": true,
+      "includeGlobalResourceTypes": true
     }
-    
-    recorder_result = config_mgr.setup_enterprise_configuration_recorder(
-        service_role_arn='arn:aws:iam::123456789012:role/aws-config-role',
-        delivery_channel_config=recorder_config
-    )
-    
-    # Deploy SOC2 compliance rules
-    soc2_results = config_mgr.deploy_enterprise_compliance_rules('SOC2')
-    
-    # Setup organization compliance
-    orchestrator = ComplianceOrchestrator('123456789012')
-    org_result = orchestrator.setup_organization_compliance(
-        organization_unit_ids=['ou-root-123456789'],
-        compliance_frameworks=['SOC2', 'PCI-DSS']
-    )
-    
-    # Create DevOps compliance gate
-    pipeline = ConfigDevOpsPipeline('production-deployment')
-    gate_config = pipeline.create_compliance_gate(
-        required_rules=['encrypted-volumes', 's3-bucket-public-access-prohibited'],
-        minimum_compliance_score=0.98
-    )
-    
-    print(f"Enterprise Config setup completed for {len(soc2_results)} compliance rules")
+  }'
+
+# Create delivery channel
+aws configservice put-delivery-channel \
+  --delivery-channel '{
+    "name": "enterprise-delivery-channel",
+    "s3BucketName": "enterprise-config-bucket",
+    "s3KeyPrefix": "config/",
+    "configSnapshotDeliveryProperties": {
+      "deliveryFrequency": "TwentyFour_Hours"
+    }
+  }'
+
+# Start configuration recorder
+aws configservice start-configuration-recorder \
+  --configuration-recorder-name enterprise-config-recorder
 ```
 
-## Advanced Multi-Account Config Management
+### Advanced Configuration
+```bash
+# Deploy organization-wide compliance rules
+aws configservice put-organization-config-rule \
+  --organization-config-rule-name "org-encrypted-volumes" \
+  --organization-managed-rule-metadata '{
+    "Description": "Checks whether EBS volumes are encrypted",
+    "RuleIdentifier": "ENCRYPTED_VOLUMES",
+    "ResourceTypesScope": ["AWS::EC2::Volume"]
+  }'
 
+# Set up aggregator for multi-account compliance
+aws configservice put-configuration-aggregator \
+  --configuration-aggregator-name "enterprise-compliance-aggregator" \
+  --organization-aggregation-source '{
+    "RoleArn": "arn:aws:iam::123456789012:role/aws-config-role",
+    "AwsRegions": ["us-east-1", "us-west-2", "eu-west-1"],
+    "AllAwsRegions": false
+  }'
+```
+
+## Enterprise Implementation Examples
+
+### Example 1: Financial Services Compliance Automation
+
+**Business Requirement:** Implement automated SOC 2 and PCI DSS compliance monitoring across 50+ AWS accounts with real-time remediation and quarterly audit reporting.
+
+**Implementation Steps:**
+1. **Multi-Account Config Setup**
+   ```python
+   import boto3
+   import json
+   from typing import Dict, List, Any
+   
+   class EnterpriseConfigManager:
+       def __init__(self, region: str = 'us-east-1'):
+           self.config_client = boto3.client('config', region_name=region)
+           self.organizations_client = boto3.client('organizations', region_name=region)
+           
+       def setup_enterprise_configuration_recorder(self, 
+                                                  service_role_arn: str,
+                                                  delivery_channel_config: Dict[str, Any]) -> Dict[str, Any]:
+           """Setup enterprise configuration recorder with comprehensive monitoring"""
+           
+           configuration_recorder = {
+               'name': 'enterprise-config-recorder',
+               'roleARN': service_role_arn,
+               'recordingGroup': {
+                   'allSupported': True,
+                   'includeGlobalResourceTypes': True,
+                   'recordingModeOverrides': [
+                       {
+                           'resourceTypes': ['AWS::EC2::Instance'],
+                           'recordingFrequency': 'CONTINUOUS'
+                       },
+                       {
+                           'resourceTypes': ['AWS::S3::Bucket'],
+                           'recordingFrequency': 'DAILY'
+                       }
+                   ]
+               }
+           }
+           
+           self.config_client.put_configuration_recorder(
+               ConfigurationRecorder=configuration_recorder
+           )
+           
+           delivery_channel = {
+               'name': 'enterprise-delivery-channel',
+               's3BucketName': delivery_channel_config['bucket_name'],
+               's3KeyPrefix': delivery_channel_config.get('key_prefix', 'config/'),
+               'configSnapshotDeliveryProperties': {
+                   'deliveryFrequency': 'TwentyFour_Hours'
+               }
+           }
+           
+           self.config_client.put_delivery_channel(DeliveryChannel=delivery_channel)
+           self.config_client.start_configuration_recorder(ConfigurationRecorderName='enterprise-config-recorder')
+           
+           return {'status': 'success', 'recorder_name': 'enterprise-config-recorder'}
+   ```
+
+2. **Deploy Compliance Rules**
+   ```python
+   def deploy_financial_compliance_rules(self) -> List[Dict[str, Any]]:
+       """Deploy SOC 2 and PCI DSS compliance rules"""
+       
+       compliance_rules = [
+           {
+               'ConfigRuleName': 'encrypted-volumes',
+               'Source': {'Owner': 'AWS', 'SourceIdentifier': 'ENCRYPTED_VOLUMES'},
+               'Scope': {'ComplianceResourceTypes': ['AWS::EC2::Volume']}
+           },
+           {
+               'ConfigRuleName': 's3-bucket-public-access-prohibited', 
+               'Source': {'Owner': 'AWS', 'SourceIdentifier': 'S3_BUCKET_PUBLIC_ACCESS_PROHIBITED'},
+               'Scope': {'ComplianceResourceTypes': ['AWS::S3::Bucket']}
+           },
+           {
+               'ConfigRuleName': 'rds-encryption-enabled',
+               'Source': {'Owner': 'AWS', 'SourceIdentifier': 'RDS_STORAGE_ENCRYPTED'},
+               'Scope': {'ComplianceResourceTypes': ['AWS::RDS::DBInstance']}
+           }
+       ]
+       
+       results = []
+       for rule in compliance_rules:
+           try:
+               self.config_client.put_config_rule(ConfigRule=rule)
+               self.setup_automatic_remediation(rule['ConfigRuleName'])
+               results.append({'rule': rule['ConfigRuleName'], 'status': 'deployed'})
+           except Exception as e:
+               results.append({'rule': rule['ConfigRuleName'], 'status': 'failed', 'error': str(e)})
+       
+       return results
+   ```
+
+3. **Automated Remediation Setup**
+   ```python
+   def setup_automatic_remediation(self, rule_name: str) -> None:
+       """Configure automatic remediation for compliance violations"""
+       
+       remediation_configs = {
+           'encrypted-volumes': {
+               'TargetId': 'AWSConfigRemediation-CreateEncryptedCopy',
+               'Parameters': {
+                   'AutomationAssumeRole': {'StaticValue': 'arn:aws:iam::123456789012:role/ConfigRemediationRole'},
+                   'VolumeId': {'ResourceValue': 'RESOURCE_ID'}
+               }
+           },
+           's3-bucket-public-access-prohibited': {
+               'TargetId': 'AWSConfigRemediation-RemoveS3BucketPublicAccess',
+               'Parameters': {
+                   'AutomationAssumeRole': {'StaticValue': 'arn:aws:iam::123456789012:role/ConfigRemediationRole'},
+                   'S3BucketName': {'ResourceValue': 'RESOURCE_ID'}
+               }
+           }
+       }
+       
+       if rule_name in remediation_configs:
+           remediation = remediation_configs[rule_name]
+           
+           self.config_client.put_remediation_configurations(
+               RemediationConfigurations=[{
+                   'ConfigRuleName': rule_name,
+                   'TargetType': 'SSM_DOCUMENT',
+                   'TargetId': remediation['TargetId'],
+                   'Parameters': remediation['Parameters'],
+                   'Automatic': True,
+                   'ExecutionControls': {
+                       'SsmControls': {
+                           'ConcurrentExecutionRatePercentage': 10,
+                           'ErrorPercentage': 5
+                       }
+                   }
+               }]
+           )
+   ```
+
+**Expected Outcome:** 99% compliance automation, 75% reduction in manual compliance checks, automated quarterly audit reports
+
+### Example 2: DevOps Compliance Pipeline Integration
+
+**Business Requirement:** Integrate Config compliance checks into CI/CD pipelines to prevent non-compliant infrastructure deployments.
+
+**Implementation Steps:**
+1. **Compliance Gate Implementation**
+   ```python
+   class ConfigComplianceGate:
+       def __init__(self, required_rules: List[str], minimum_score: float = 0.95):
+           self.config_client = boto3.client('config')
+           self.required_rules = required_rules
+           self.minimum_score = minimum_score
+           
+       def evaluate_compliance_gate(self) -> Dict[str, Any]:
+           """Evaluate if deployment meets compliance requirements"""
+           
+           compliance_results = []
+           
+           for rule_name in self.required_rules:
+               try:
+                   response = self.config_client.get_compliance_details_by_config_rule(
+                       ConfigRuleName=rule_name,
+                       Limit=100
+                   )
+                   
+                   compliant_count = sum(1 for result in response['EvaluationResults'] 
+                                       if result['ComplianceType'] == 'COMPLIANT')
+                   total_count = len(response['EvaluationResults'])
+                   
+                   compliance_score = compliant_count / total_count if total_count > 0 else 0
+                   
+                   compliance_results.append({
+                       'rule_name': rule_name,
+                       'compliance_score': compliance_score,
+                       'compliant_resources': compliant_count,
+                       'total_resources': total_count
+                   })
+                   
+               except Exception as e:
+                   compliance_results.append({
+                       'rule_name': rule_name,
+                       'error': str(e),
+                       'compliance_score': 0
+                   })
+           
+           overall_score = sum(r['compliance_score'] for r in compliance_results if 'error' not in r) / len(compliance_results)
+           gate_passed = overall_score >= self.minimum_score
+           
+           return {
+               'gate_passed': gate_passed,
+               'overall_compliance_score': overall_score,
+               'minimum_required_score': self.minimum_score,
+               'rule_results': compliance_results,
+               'recommendation': 'Deploy approved' if gate_passed else 'Deploy blocked - fix compliance issues'
+           }
+   ```
+
+**Expected Outcome:** Zero non-compliant deployments, 90% reduction in post-deployment compliance issues
+
+## Monitoring & Observability
+
+### Key Metrics to Monitor
+| Metric | Description | Threshold | Action |
+|--------|-------------|-----------|---------|
+| **ComplianceScore** | Overall compliance percentage | <95% | Review and remediate violations |
+| **ConfigurationChanges** | Rate of configuration changes | >100/hour | Investigate unusual activity |
+| **RemediationSuccess** | Automatic remediation success rate | <90% | Review remediation configurations |
+| **RuleEvaluations** | Config rule evaluation frequency | <daily | Check rule configuration |
+
+### CloudWatch Integration
+```bash
+# Create Config compliance dashboard
+aws cloudwatch put-dashboard \
+  --dashboard-name "Config-Enterprise-Dashboard" \
+  --dashboard-body file://config-dashboard.json
+
+# Set up compliance alerts
+aws cloudwatch put-metric-alarm \
+  --alarm-name "Config-Low-Compliance-Score" \
+  --alarm-description "Alert when compliance score drops below threshold" \
+  --metric-name "ComplianceByConfigRule" \
+  --namespace "AWS/Config" \
+  --statistic Average \
+  --period 3600 \
+  --threshold 0.95 \
+  --comparison-operator LessThanThreshold \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:config-alerts
+```
+
+### Custom Monitoring
 ```python
-class MultiAccountConfigManager:
-    """
-    Enterprise multi-account Config management with centralized governance,
-    cross-account compliance monitoring, and automated policy enforcement.
-    """
-    
-    def __init__(self, management_account_id: str, regions: List[str]):
-        self.management_account_id = management_account_id
-        self.regions = regions
-        self.config_managers = {}
+import boto3
+from datetime import datetime, timedelta
+
+class ConfigMonitor:
+    def __init__(self):
+        self.config_client = boto3.client('config')
+        self.cloudwatch = boto3.client('cloudwatch')
         
-        # Initialize Config managers for each region
-        for region in regions:
-            self.config_managers[region] = EnterpriseConfigManager(region)
-    
-    def setup_centralized_compliance_monitoring(self, 
-                                              member_accounts: List[str],
-                                              compliance_policies: Dict[str, Any]) -> Dict[str, Any]:
-        """Setup centralized compliance monitoring across member accounts"""
-        
-        results = {}
-        
-        for region in self.regions:
-            config_mgr = self.config_managers[region]
+    def publish_compliance_metrics(self):
+        """Publish custom compliance metrics to CloudWatch"""
+        try:
+            # Get compliance summary
+            response = self.config_client.get_compliance_summary_by_config_rule()
             
-            # Create aggregator for member accounts
-            aggregator_config = {
-                'ConfigurationAggregatorName': f'central-compliance-aggregator-{region}',
-                'AccountAggregationSources': [
+            # Calculate metrics
+            total_rules = response['ComplianceSummary']['ComplianceType']
+            compliant_rules = total_rules.get('COMPLIANT', 0)
+            non_compliant_rules = total_rules.get('NON_COMPLIANT', 0)
+            total = compliant_rules + non_compliant_rules
+            
+            compliance_percentage = (compliant_rules / total * 100) if total > 0 else 0
+            
+            # Publish to CloudWatch
+            self.cloudwatch.put_metric_data(
+                Namespace='Custom/Config',
+                MetricData=[
                     {
-                        'AccountIds': member_accounts,
-                        'AwsRegions': [region],
-                        'AllAwsRegions': False
+                        'MetricName': 'CompliancePercentage',
+                        'Value': compliance_percentage,
+                        'Unit': 'Percent'
+                    },
+                    {
+                        'MetricName': 'TotalRules',
+                        'Value': total,
+                        'Unit': 'Count'
                     }
                 ]
-            }
+            )
             
-            try:
-                config_mgr.config_client.put_configuration_aggregator(
-                    ConfigurationAggregator=aggregator_config
-                )
-                
-                # Deploy organizational Config rules
-                org_rules = self._create_organizational_rules(compliance_policies)
-                
-                for rule in org_rules:
-                    config_mgr.config_client.put_organization_config_rule(
-                        OrganizationConfigRuleName=rule['name'],
-                        OrganizationConfigRule={
-                            'OrganizationConfigRuleName': rule['name'],
-                            'OrganizationManagedRuleMetadata': rule['metadata'],
-                            'ExcludedAccounts': rule.get('excluded_accounts', []),
-                            'OrganizationCustomPolicyRuleMetadata': rule.get('custom_policy', {})
-                        }
-                    )
-                
-                results[region] = {
-                    'status': 'success',
-                    'aggregator': f'central-compliance-aggregator-{region}',
-                    'rules_deployed': len(org_rules),
-                    'member_accounts': len(member_accounts)
-                }
-                
-            except Exception as e:
-                results[region] = {
-                    'status': 'failed',
-                    'error': str(e)
-                }
-        
-        return results
-    
-    def _create_organizational_rules(self, policies: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Create organizational Config rules from compliance policies"""
-        
-        org_rules = []
-        
-        for policy_name, policy_config in policies.items():
-            rule = {
-                'name': f"org-{policy_name.lower().replace(' ', '-')}",
-                'metadata': {
-                    'Description': policy_config['description'],
-                    'RuleIdentifier': policy_config['rule_identifier'],
-                    'InputParameters': json.dumps(policy_config.get('parameters', {})),
-                    'MaximumExecutionFrequency': policy_config.get('frequency', 'TwentyFour_Hours'),
-                    'ResourceTypesScope': policy_config.get('resource_types', []),
-                    'ResourceIdScope': policy_config.get('resource_id_scope'),
-                    'TagKeyScope': policy_config.get('tag_key_scope'),
-                    'TagValueScope': policy_config.get('tag_value_scope')
-                },
-                'excluded_accounts': policy_config.get('excluded_accounts', [])
-            }
-            
-            org_rules.append(rule)
-        
-        return org_rules
+        except Exception as e:
+            print(f"Failed to publish metrics: {e}")
+```
 
-# Enterprise Config Conformance Packs
-class EnterpriseConformancePacks:
-    """
-    Pre-built enterprise conformance packs for various compliance frameworks
-    with automated deployment and continuous monitoring.
-    """
-    
-    @staticmethod
-    def get_soc2_conformance_pack() -> Dict[str, Any]:
-        """SOC2 Type II conformance pack"""
-        
-        return {
-            'ConformancePackName': 'Enterprise-SOC2-Pack',
-            'TemplateBody': """
+## Security & Compliance
+
+### Security Best Practices
+- **Least Privilege Access:** Grant minimal required permissions for Config service operations
+- **Cross-Account Security:** Implement secure cross-account roles for organization-wide compliance
+- **Data Encryption:** Ensure Config data is encrypted in transit and at rest in S3 buckets
+- **Access Logging:** Enable CloudTrail for all Config API calls and configuration changes
+
+### Compliance Frameworks
+- **SOC 2 Type II:** Comprehensive controls for security, availability, processing integrity, confidentiality, and privacy
+- **PCI DSS:** Payment card industry compliance with automated cardholder data environment monitoring
+- **HIPAA:** Healthcare compliance with PHI protection and access control validation
+- **NIST:** Framework alignment with cybersecurity controls and risk management practices
+
+### IAM Policies
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "config:Get*",
+        "config:List*",
+        "config:Describe*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "config:PutConfigRule",
+        "config:DeleteConfigRule",
+        "config:PutRemediationConfigurations"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-west-2"]
+        }
+      }
+    }
+  ]
+}
+```
+
+## Cost Optimization
+
+### Pricing Model
+- **Configuration Items:** Pay per configuration item recorded (free tier: 2,000 items/month)
+- **Config Rule Evaluations:** Pay per rule evaluation (free tier: 2,500 evaluations/month)
+- **Conformance Packs:** Additional charges for organization-wide conformance pack deployments
+- **Storage Costs:** S3 storage costs for configuration snapshots and history
+
+### Cost Optimization Strategies
+```bash
+# Configure selective resource recording to reduce costs
+aws configservice put-configuration-recorder \
+  --configuration-recorder '{
+    "name": "cost-optimized-recorder",
+    "recordingGroup": {
+      "allSupported": false,
+      "resourceTypes": ["AWS::EC2::Instance", "AWS::S3::Bucket", "AWS::RDS::DBInstance"],
+      "recordingModeOverrides": [
+        {
+          "resourceTypes": ["AWS::EC2::Instance"],
+          "recordingFrequency": "DAILY"
+        }
+      ]
+    }
+  }'
+
+# Set up cost monitoring
+aws budgets create-budget \
+  --account-id 123456789012 \
+  --budget '{
+    "BudgetName": "Config-Monthly-Budget",
+    "BudgetLimit": {
+      "Amount": "200",
+      "Unit": "USD"
+    },
+    "TimeUnit": "MONTHLY",
+    "BudgetType": "COST"
+  }'
+```
+
+## Automation & Infrastructure as Code
+
+### CloudFormation Template
+```yaml
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Enterprise SOC2 Type II Conformance Pack'
+Description: 'Enterprise AWS Config deployment'
 
 Parameters:
-  OrganizationId:
+  EnvironmentName:
     Type: String
-    Description: Organization ID for cross-account access
+    Default: production
+    AllowedValues: [development, staging, production]
+  
+  ConfigBucketName:
+    Type: String
+    Description: S3 bucket for Config data
 
 Resources:
-  EncryptedVolumesConfigRule:
-    Type: AWS::Config::ConfigRule
+  ConfigServiceRole:
+    Type: AWS::IAM::Role
     Properties:
-      ConfigRuleName: soc2-encrypted-volumes
-      Description: Checks whether Amazon EBS volumes are encrypted
-      Source:
-        Owner: AWS
-        SourceIdentifier: ENCRYPTED_VOLUMES
-      Scope:
-        ComplianceResourceTypes:
-          - AWS::EC2::Volume
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/ConfigRole
+      RoleName: !Sub '${EnvironmentName}-aws-config-role'
 
-  S3BucketPublicAccessConfigRule:
-    Type: AWS::Config::ConfigRule
+  ConfigurationRecorder:
+    Type: AWS::Config::ConfigurationRecorder
     Properties:
-      ConfigRuleName: soc2-s3-public-access-prohibited
-      Description: Checks that S3 buckets do not allow public access
-      Source:
-        Owner: AWS
-        SourceIdentifier: S3_BUCKET_PUBLIC_ACCESS_PROHIBITED
-      Scope:
-        ComplianceResourceTypes:
-          - AWS::S3::Bucket
+      Name: !Sub '${EnvironmentName}-config-recorder'
+      RoleARN: !GetAtt ConfigServiceRole.Arn
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
 
-  CloudTrailEnabledConfigRule:
-    Type: AWS::Config::ConfigRule
+  DeliveryChannel:
+    Type: AWS::Config::DeliveryChannel
     Properties:
-      ConfigRuleName: soc2-cloudtrail-enabled
-      Description: Checks whether CloudTrail is enabled
-      Source:
-        Owner: AWS
-        SourceIdentifier: CLOUD_TRAIL_ENABLED
-
-  RDSEncryptionEnabledConfigRule:
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: soc2-rds-encryption-enabled
-      Description: Checks whether Amazon RDS instances are encrypted
-      Source:
-        Owner: AWS
-        SourceIdentifier: RDS_STORAGE_ENCRYPTED
-      Scope:
-        ComplianceResourceTypes:
-          - AWS::RDS::DBInstance
-
-  SecurityGroupRestrictedConfigRule:
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: soc2-security-group-restricted
-      Description: Checks that security groups do not allow unrestricted access
-      Source:
-        Owner: AWS
-        SourceIdentifier: INCOMING_SSH_DISABLED
-      Scope:
-        ComplianceResourceTypes:
-          - AWS::EC2::SecurityGroup
+      Name: !Sub '${EnvironmentName}-delivery-channel'
+      S3BucketName: !Ref ConfigBucketName
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: TwentyFour_Hours
 
 Outputs:
-  ConformancePackId:
-    Description: SOC2 Conformance Pack ID
-    Value: !Ref 'AWS::StackId'
-            """,
-            'ConformancePackInputParameters': [
-                {
-                    'ParameterName': 'OrganizationId',
-                    'ParameterValue': 'o-123456789'
-                }
-            ]
-        }
+  ConfigRecorderName:
+    Description: Name of the Config recorder
+    Value: !Ref ConfigurationRecorder
+    Export:
+      Name: !Sub '${EnvironmentName}-Config-RecorderName'
+```
 
-# Real-world Enterprise Use Cases
-
-## Use Case 1: Financial Services Compliance Automation
-"""
-Enterprise bank implements automated SOC2 and PCI-DSS compliance monitoring
-across 50+ AWS accounts with real-time remediation and audit reporting.
-
-Key Requirements:
-- Continuous compliance monitoring for SOC2 Type II
-- PCI-DSS compliance for payment processing systems  
-- Automated remediation for critical security violations
-- Real-time compliance dashboards and alerts
-- Quarterly compliance reports for auditors
-- Multi-region compliance aggregation
-"""
-
-## Use Case 2: Healthcare HIPAA Compliance Management
-"""
-Healthcare organization manages HIPAA compliance across development,
-staging, and production environments with automated policy enforcement.
-
-Key Requirements:
-- HIPAA BAA compliance verification
-- PHI data encryption enforcement
-- Access control validation
-- Audit trail maintenance
-- Breach detection and response
-- Cross-account compliance monitoring
-"""
-
-## Use Case 3: Government FedRAMP Compliance
-"""
-Government contractor maintains FedRAMP compliance with continuous
-monitoring, automated evidence collection, and security controls validation.
-
-Key Requirements:
-- FedRAMP Moderate baseline compliance
-- NIST 800-53 controls implementation
-- Continuous monitoring and assessment
-- Automated security control validation
-- Evidence collection for Authority to Operate (ATO)
-- Risk management and mitigation tracking
-"""
-
-# Advanced Config Integration Patterns
-
-## Pattern 1: Config + Security Hub Integration
-config_security_hub_integration = """
-# Automated integration between Config and Security Hub
-# for comprehensive security posture management
-
-def integrate_config_with_security_hub():
-    import boto3
-    
-    config_client = boto3.client('config')
-    securityhub_client = boto3.client('securityhub')
-    
-    # Enable Security Hub integration
-    securityhub_client.enable_import_findings_for_product(
-        ProductArn='arn:aws:securityhub:::product/aws/config'
-    )
-    
-    # Create custom insight for Config findings
-    insight = {
-        'Name': 'Config Non-Compliant Resources',
-        'Filters': {
-            'ProductName': [{'Value': 'Config', 'Comparison': 'EQUALS'}],
-            'ComplianceStatus': [{'Value': 'FAILED', 'Comparison': 'EQUALS'}]
-        },
-        'GroupByAttribute': 'ResourceType'
+### Terraform Configuration
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
     }
-    
-    securityhub_client.create_insight(**insight)
-"""
+  }
+}
 
-## Pattern 2: Config + Systems Manager Integration
-config_ssm_integration = """
-# Automated remediation using Systems Manager
-# for Config rule violations
+resource "aws_config_configuration_recorder" "enterprise_recorder" {
+  name     = "${var.environment}-config-recorder"
+  role_arn = aws_iam_role.config_role.arn
 
-def setup_config_ssm_remediation():
-    import boto3
-    
-    ssm_client = boto3.client('ssm')
+  recording_group {
+    all_supported                 = true
+    include_global_resource_types = true
+  }
+}
+
+resource "aws_config_delivery_channel" "enterprise_channel" {
+  name           = "${var.environment}-delivery-channel"
+  s3_bucket_name = aws_s3_bucket.config_bucket.bucket
+  
+  snapshot_delivery_properties {
+    delivery_frequency = "TwentyFour_Hours"
+  }
+}
+
+resource "aws_config_config_rule" "encrypted_volumes" {
+  name = "encrypted-volumes"
+
+  source {
+    owner             = "AWS"
+    source_identifier = "ENCRYPTED_VOLUMES"
+  }
+
+  depends_on = [aws_config_configuration_recorder.enterprise_recorder]
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "production"
+}
+
+output "config_recorder_name" {
+  description = "Name of the Config configuration recorder"
+  value       = aws_config_configuration_recorder.enterprise_recorder.name
+}
+```
+
+## Troubleshooting & Operations
+
+### Common Issues & Solutions
+
+#### Issue 1: Configuration Recorder Not Starting
+**Symptoms:** Config recorder fails to start, no configuration items being recorded
+**Cause:** Missing IAM permissions or S3 bucket access issues
+**Solution:**
+```bash
+# Check recorder status
+aws configservice describe-configuration-recorders
+aws configservice describe-configuration-recorder-status
+
+# Verify IAM role permissions
+aws iam get-role --role-name aws-config-role
+aws iam list-attached-role-policies --role-name aws-config-role
+
+# Test S3 bucket access
+aws s3 ls s3://config-bucket-name/
+```
+
+#### Issue 2: High Config Rule Evaluation Costs
+**Symptoms:** Unexpected high charges for Config rule evaluations
+**Cause:** Rules configured with overly frequent evaluation or broad resource scope
+**Solution:**
+```python
+import boto3
+
+def optimize_config_rule_costs():
+    """Optimize Config rules to reduce evaluation costs"""
     config_client = boto3.client('config')
     
-    # Create remediation document
-    remediation_document = {
-        'Content': yaml.dump({
-            'schemaVersion': '0.3',
-            'description': 'Remediate S3 bucket public access',
-            'assumeRole': '{{ AutomationAssumeRole }}',
-            'parameters': {
-                'BucketName': {'type': 'String'},
-                'AutomationAssumeRole': {'type': 'String'}
-            },
-            'mainSteps': [
-                {
-                    'name': 'BlockPublicAccess',
-                    'action': 'aws:executeAwsApi',
-                    'inputs': {
-                        'Service': 's3',
-                        'Api': 'put_public_access_block',
-                        'Bucket': '{{ BucketName }}',
-                        'PublicAccessBlockConfiguration': {
-                            'BlockPublicAcls': True,
-                            'IgnorePublicAcls': True,
-                            'BlockPublicPolicy': True,
-                            'RestrictPublicBuckets': True
-                        }
-                    }
-                }
-            ]
-        }),
-        'DocumentType': 'Automation',
-        'DocumentFormat': 'YAML'
-    }
+    # Get all Config rules
+    response = config_client.describe_config_rules()
     
-    ssm_client.create_document(**remediation_document)
-"""
+    expensive_rules = []
+    for rule in response['ConfigRules']:
+        # Check for rules with continuous evaluation
+        if rule.get('MaximumExecutionFrequency') == 'CONTINUOUS':
+            expensive_rules.append(rule['ConfigRuleName'])
+    
+    # Recommend optimization
+    for rule_name in expensive_rules:
+        print(f"Consider changing {rule_name} from CONTINUOUS to DAILY evaluation")
+    
+    return expensive_rules
+```
 
-## DevOps Best Practices
+### Performance Optimization
 
-### 1. Infrastructure as Code Integration
-- Deploy Config rules via CloudFormation/CDK
-- Version control compliance policies
-- Automated testing of Config rules
-- Blue-green deployment of compliance changes
+#### Optimization Strategy 1: Selective Resource Recording
+- **Current State Analysis:** Review which resources are being recorded and their business value
+- **Optimization Steps:** Configure recording to focus on critical resources only
+- **Expected Improvement:** 60% reduction in configuration items and associated costs
 
-### 2. CI/CD Pipeline Integration
-- Compliance gates in deployment pipelines
-- Automated compliance testing
-- Configuration drift detection
-- Rollback mechanisms for compliance failures
+#### Optimization Strategy 2: Rule Optimization
+- **Monitoring Approach:** Track rule evaluation frequency and costs
+- **Tuning Parameters:** Adjust evaluation frequency based on compliance requirements
+- **Validation Methods:** Monitor compliance effectiveness while reducing evaluation costs
 
-### 3. Monitoring and Alerting
-- Real-time compliance dashboards
-- Automated alerting for violations
-- Trend analysis and reporting
-- Integration with incident management systems
+## Best Practices Summary
 
-### 4. Cost Optimization
-- Resource tagging compliance
-- Cost allocation tracking
-- Unused resource identification
-- Right-sizing recommendations based on Config data
+### Development & Deployment
+1. **Infrastructure as Code:** Deploy Config resources using CloudFormation or Terraform
+2. **Compliance Testing:** Test compliance rules in development environments before production deployment
+3. **Version Control:** Maintain version control for all Config rules and remediation configurations
+4. **Gradual Rollout:** Deploy new compliance rules gradually to avoid overwhelming operations teams
 
-This enterprise AWS Config framework provides comprehensive compliance automation, multi-account governance, and seamless DevOps integration for organizations requiring advanced configuration management and regulatory compliance capabilities.
+### Operations & Maintenance
+1. **Regular Reviews:** Conduct monthly reviews of compliance status and rule effectiveness
+2. **Cost Monitoring:** Track Config costs and optimize resource recording strategies
+3. **Performance Tuning:** Regularly review and optimize rule evaluation frequencies
+4. **Documentation:** Maintain comprehensive documentation of compliance requirements and implementations
+
+### Security & Governance
+1. **Access Control:** Implement role-based access for Config operations and compliance management
+2. **Audit Compliance:** Regularly audit Config configurations and compliance rule effectiveness
+3. **Incident Response:** Establish procedures for responding to compliance violations and failures
+4. **Continuous Improvement:** Regularly review and update compliance requirements based on business needs
+
+---
+
+## Additional Resources
+
+### AWS Documentation
+- [Official AWS Config Documentation](https://docs.aws.amazon.com/config/)
+- [AWS Config API Reference](https://docs.aws.amazon.com/config/latest/APIReference/)
+- [AWS Config User Guide](https://docs.aws.amazon.com/config/latest/userguide/)
+
+### Community Resources
+- [AWS Config GitHub Samples](https://github.com/aws-samples?q=config)
+- [AWS Config Workshop](https://compliance-and-governance.workshop.aws/)
+- [AWS Config Blog Posts](https://aws.amazon.com/blogs/mt/?tag=config)
+
+### Tools & Utilities
+- [AWS CLI Config Commands](https://docs.aws.amazon.com/cli/latest/reference/configservice/)
+- [AWS SDKs for Config](https://aws.amazon.com/developer/tools/)
+- [Terraform AWS Config Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/config_configuration_recorder)

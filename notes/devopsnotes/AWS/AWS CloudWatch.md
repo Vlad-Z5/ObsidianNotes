@@ -1,6 +1,6 @@
 # AWS CloudWatch
 
-> **Service Type:** Monitoring & Observability | **Tier:** Essential DevOps | **Global/Regional:** Regional
+> **Service Type:** Management & Governance | **Scope:** Regional | **Serverless:** Yes
 
 ## Overview
 

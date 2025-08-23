@@ -4,14 +4,14 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 🏗️ Core Architecture & Components
 
-### [[K8s Architecture]]
+### [[Kubernetes Architecture]]
 - Comprehensive control plane components deep dive
 - Node components and container runtime interfaces
 - etcd cluster management and backup strategies
 - Scheduler algorithms and advanced features
 - Controller manager and reconciliation loops
 
-### [[K8s Core Objects]]
+### [[Kubernetes Core Objects]]
 - Workload resources comprehensive guide
 - Pod lifecycle, probes, and security contexts
 - Deployment strategies (Rolling, Blue-Green, Canary)
@@ -21,7 +21,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 🌐 Networking & Communication
 
-### [[K8s Networking]]
+### [[Kubernetes Networking]]
 - Service types detailed analysis (ClusterIP, NodePort, LoadBalancer)
 - Ingress controllers comparison (nginx, traefik, AWS ALB)
 - Network policies for micro-segmentation
@@ -31,7 +31,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 💾 Storage & Data Management
 
-### [[K8s Storage]]
+### [[Kubernetes Storage]]
 - Persistent volumes and claims (static/dynamic provisioning)
 - Storage classes for different cloud providers
 - CSI drivers deep dive (AWS EBS, Azure File, GCP PD)
@@ -39,7 +39,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 - Storage performance optimization
 - Volume expansion and migration
 
-### [[K8s Configuration Management]]
+### [[Kubernetes Configuration Management]]
 - ConfigMaps advanced usage patterns
 - Secrets management and external secrets operators
 - TLS certificate management
@@ -49,7 +49,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 🔒 Security & Access Control
 
-### [[K8s Security]]
+### [[Kubernetes Security]]
 - RBAC (Role-Based Access Control) implementation
 - Pod Security Standards and security contexts
 - Network policies for traffic control
@@ -59,7 +59,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 📊 Operations & Monitoring
 
-### [[K8s Monitoring and Troubleshooting]]
+### [[Kubernetes Monitoring and Troubleshooting]]
 - Prometheus and Grafana stack setup
 - Logging architecture and centralized logging
 - Performance monitoring and debugging techniques
@@ -67,7 +67,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 - Health checks and observability patterns
 - Alerting and incident response
 
-### [[K8s Production Best Practices]]
+### [[Kubernetes Production Best Practices]]
 - Production readiness checklist
 - Resource management and capacity planning
 - High availability configurations
@@ -77,7 +77,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 
 ## 🔄 Advanced Topics
 
-### [[K8s Workload Controllers]]
+### [[Kubernetes Workload Controllers]]
 - Jobs and CronJobs for batch processing
 - HorizontalPodAutoscaler (HPA) configuration
 - VerticalPodAutoscaler (VPA) implementation
@@ -91,7 +91,7 @@ This is your comprehensive guide to Kubernetes fundamentals, organized into spec
 - Troubleshooting and debugging commands
 - Batch operations and automation scripts
 
-### [[K8s commands]]
+### [[Kubernetes commands]]
 - Comprehensive command-line reference
 - Cluster administration commands
 - Resource inspection and debugging

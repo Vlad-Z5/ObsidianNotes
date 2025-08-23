@@ -1,4 +1,4 @@
-Helm is a package manager for K8, just like apt is for Debian, that uses Chart Repositories to install needed resources for the cluster; Helm has version control and configuration management through values. Helm uses {{ .Values.value }} templating for values, charts, releases, etc.
+Helm is a package manager for Kubernetes, just like apt is for Debian, that uses Chart Repositories to install needed resources for the cluster; Helm has version control and configuration management through values. Helm uses {{ .Values.value }} templating for values, charts, releases, etc.
 ## Components
 - **Chart.yaml:** Metadata about the chart (name, version, etc.)
 - **values.yaml:** Default configuration values

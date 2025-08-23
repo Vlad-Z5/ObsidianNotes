@@ -1,6 +1,251 @@
-# AWS Network ACL - Enterprise Security Automation & Compliance Platform
+# AWS Network ACL: Enterprise Subnet-Level Security & Compliance Automation Platform
 
-AWS Network ACLs provide stateless subnet-level security with automated rule management, intelligent threat detection, compliance enforcement, and enterprise-scale security orchestration frameworks.
+> **Service Type:** Security, Identity & Compliance | **Scope:** Regional | **Serverless:** Yes
+
+## Overview
+
+AWS Network Access Control Lists (NACLs) are stateless, subnet-level firewalls that provide fine-grained network traffic control and security enforcement across AWS VPC environments. They enable organizations to implement defense-in-depth security strategies with automated compliance monitoring, intelligent threat response, and enterprise-scale security orchestration for complex multi-tier applications requiring regulatory compliance and advanced threat protection capabilities.
+
+## Core Architecture Components
+
+- **Stateless Firewall:** Subnet-level traffic filtering that requires explicit allow rules for both inbound and outbound traffic
+- **Rule-Based Processing:** Numbered rule evaluation (1-32766) with lowest number priority and sequential processing
+- **Subnet Association:** Direct association with VPC subnets for network-level security enforcement independent of security groups
+- **Protocol Support:** Full support for TCP, UDP, ICMP, and IPv6 protocols with port range and ICMP type/code specifications
+- **Allow/Deny Actions:** Comprehensive traffic control with both allow and deny actions for flexible security policy implementation
+- **Multi-VPC Support:** Cross-VPC security management with centralized policy enforcement and compliance monitoring
+- **Real-Time Processing:** Immediate traffic filtering with no performance impact on subnet resources and applications
+
+## DevOps & Enterprise Use Cases
+
+### Security Policy Automation
+- **Automated Security Deployment:** Enterprise-grade Network ACL deployment with security zone categorization and compliance frameworks
+- **Compliance Automation:** Built-in compliance frameworks for PCI DSS, HIPAA, SOX, GDPR, SOC 2, NIST, and CIS with automated enforcement
+- **Infrastructure as Code Integration:** Terraform, CloudFormation, and CDK integration for declarative security policy management
+- **DevOps Pipeline Security:** CI/CD integration for automated security policy validation and deployment across environments
+
+### Threat Detection & Response
+- **Intelligent Threat Response:** Automated threat detection and response with IP blocking capabilities and real-time security updates
+- **Security Assessment:** Comprehensive security posture analysis with violation detection and remediation recommendations
+- **Incident Response Automation:** Automated security incident response with threat indicator processing and policy updates
+- **Forensics & Compliance:** Comprehensive audit trails and security event logging for regulatory compliance and forensic analysis
+
+### Enterprise Network Security
+- **Multi-Tier Security Architecture:** Layered security implementation with web, application, and database tier protection
+- **Zero Trust Networking:** Default deny policies with explicit allow rules for least-privilege network access control
+- **Regulatory Compliance:** Automated compliance monitoring and enforcement for healthcare, financial, and government regulations
+- **Security Orchestration:** Centralized security policy management across multiple VPCs, accounts, and AWS regions
+
+### Operational Security Management
+- **Risk-Based Security:** Dynamic security rules based on security tiers and threat levels with automated policy adjustments
+- **Automated Remediation:** Self-healing security configurations with automated rule updates and violation remediation
+- **Security Analytics:** Real-time security monitoring with compliance scoring and security posture analytics
+- **Enterprise Integration:** Integration with SIEM systems, security orchestration platforms, and enterprise security tools
+
+## Service Features & Capabilities
+
+### Traffic Control & Filtering
+- **Stateless Operation:** Independent inbound and outbound rule evaluation requiring explicit rules for bidirectional communication
+- **Granular Control:** Port-level, protocol-level, and IP address-level traffic filtering with CIDR block support
+- **Rule Priority:** Sequential rule processing with numbered priorities enabling precise traffic control and security policy implementation
+- **Protocol Flexibility:** Support for TCP, UDP, ICMP, and IPv6 with comprehensive port ranges and ICMP type/code specifications
+
+### Security Policy Management
+- **Default Deny:** Secure default configuration with explicit allow rules required for traffic flow
+- **Rule Limits:** Up to 20 rules per Network ACL (inbound/outbound) with request-based limit increases available
+- **Subnet Association:** One-to-many subnet association enabling zone-based security policy enforcement
+- **Cross-AZ Support:** Multi-Availability Zone security policy consistency with regional configuration management
+
+### Integration & Automation
+- **Security Group Complement:** Works alongside security groups for defense-in-depth security architecture
+- **VPC Integration:** Native VPC integration with route table and security group coordination
+- **CloudWatch Integration:** Network traffic monitoring and security event logging with CloudWatch Logs integration
+- **API Management:** Complete AWS API and CLI support for programmatic Network ACL lifecycle management
+
+### Enterprise Security Features
+- **Compliance Frameworks:** Built-in support for PCI DSS, HIPAA, SOX, GDPR, SOC 2, NIST, and CIS compliance requirements
+- **Audit Trail:** Comprehensive logging of security policy changes and traffic patterns for regulatory compliance
+- **Threat Intelligence:** Integration with AWS GuardDuty and Security Hub for automated threat response
+- **Multi-Account Management:** Cross-account security policy management with AWS Organizations integration
+
+## Configuration & Setup
+
+### Basic Network ACL Creation
+```bash
+# Create custom Network ACL
+aws ec2 create-network-acl \
+  --vpc-id vpc-12345678 \
+  --tag-specifications 'ResourceType=network-acl,Tags=[{Key=Name,Value=Web-Tier-NACL},{Key=SecurityTier,Value=High}]'
+
+# Add inbound rule to allow HTTPS
+aws ec2 create-network-acl-entry \
+  --network-acl-id acl-abcd1234 \
+  --rule-number 100 \
+  --protocol tcp \
+  --rule-action allow \
+  --port-range From=443,To=443 \
+  --cidr-block 0.0.0.0/0
+
+# Add outbound rule for ephemeral ports
+aws ec2 create-network-acl-entry \
+  --network-acl-id acl-abcd1234 \
+  --rule-number 100 \
+  --protocol tcp \
+  --rule-action allow \
+  --port-range From=1024,To=65535 \
+  --cidr-block 0.0.0.0/0 \
+  --egress
+
+# Associate with subnet
+aws ec2 associate-network-acl \
+  --network-acl-id acl-abcd1234 \
+  --subnet-id subnet-87654321
+```
+
+### Enterprise Multi-Tier Security Configuration
+```bash
+# Deploy comprehensive multi-tier Network ACL security
+security_zones=("public" "private-app" "private-data")
+vpc_id="vpc-12345678"
+
+for zone in "${security_zones[@]}"; do
+  # Create zone-specific Network ACL
+  nacl_id=$(aws ec2 create-network-acl \
+    --vpc-id $vpc_id \
+    --tag-specifications "ResourceType=network-acl,Tags=[{Key=Name,Value=NACL-${zone}},{Key=SecurityZone,Value=${zone}}]" \
+    --query 'NetworkAcl.NetworkAclId' --output text)
+  
+  echo "Created Network ACL for $zone: $nacl_id"
+  
+  # Configure zone-specific rules based on security requirements
+  case $zone in
+    "public")
+      # Allow HTTP/HTTPS inbound
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 100 \
+        --protocol tcp \
+        --rule-action allow \
+        --port-range From=80,To=80 \
+        --cidr-block 0.0.0.0/0
+      
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 110 \
+        --protocol tcp \
+        --rule-action allow \
+        --port-range From=443,To=443 \
+        --cidr-block 0.0.0.0/0
+      ;;
+      
+    "private-data")
+      # Deny all internet traffic explicitly
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 50 \
+        --protocol all \
+        --rule-action deny \
+        --cidr-block 0.0.0.0/0
+      
+      # Allow database ports from internal networks only
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 100 \
+        --protocol tcp \
+        --rule-action allow \
+        --port-range From=3306,To=3306 \
+        --cidr-block 10.0.0.0/8
+      ;;
+  esac
+done
+```
+
+## Enterprise Implementation Examples
+
+### Example 1: PCI DSS Compliant E-Commerce Network Security
+
+**Business Requirement:** Deploy PCI DSS compliant Network ACL security architecture for e-commerce platform handling credit card transactions with multi-tier security zones and automated compliance monitoring.
+
+**Implementation Steps:**
+1. **Multi-Tier Security Architecture Setup**
+```python
+# PCI DSS compliant Network ACL deployment
+def deploy_pci_compliant_security():
+    security_config = {
+        'compliance_frameworks': ['pci-dss', 'soc2'],
+        'security_tier': 'critical',
+        'zones': {
+            'public': {
+                'description': 'Web tier for customer-facing applications',
+                'security_level': 'high',
+                'allowed_protocols': ['tcp:80', 'tcp:443']
+            },
+            'private_app': {
+                'description': 'Application tier for payment processing',
+                'security_level': 'critical',
+                'allowed_protocols': ['tcp:8080', 'tcp:8443']
+            },
+            'private_data': {
+                'description': 'Database tier with cardholder data',
+                'security_level': 'critical',
+                'allowed_protocols': ['tcp:3306'],
+                'restrict_internet': True
+            }
+        }
+    }
+    
+    nacl_manager = EnterpriseNetworkACLManager()
+    deployment = nacl_manager.deploy_enterprise_security_framework(
+        vpc_id='vpc-ecommerce',
+        security_tier=SecurityTier.CRITICAL,
+        compliance_frameworks=[ComplianceFramework.PCI_DSS, ComplianceFramework.SOC2]
+    )
+    
+    return deployment
+```
+
+**Expected Outcome:** 100% PCI DSS compliance, automated cardholder data protection, real-time security monitoring with automated incident response.
+
+### Example 2: HIPAA Compliant Healthcare Network Security
+
+**Business Requirement:** Implement HIPAA compliant Network ACL security for healthcare organization protecting PHI data across multiple availability zones with automated compliance reporting.
+
+**Implementation Steps:**
+1. **HIPAA Security Framework Deployment**
+```python
+def deploy_hipaa_security_framework():
+    healthcare_config = {
+        'compliance_frameworks': ['hipaa', 'hitech'],
+        'data_classification': 'phi',
+        'security_requirements': {
+            'encryption_required': True,
+            'audit_logging': True,
+            'access_controls': 'strict',
+            'data_residency': 'us-only'
+        }
+    }
+    
+    # Deploy multi-AZ HIPAA compliant architecture
+    nacl_orchestrator = NetworkACLSecurityOrchestrator(
+        regions=['us-east-1', 'us-west-2'],
+        compliance_frameworks=[ComplianceFramework.HIPAA]
+    )
+    
+    deployment = nacl_orchestrator.deploy_organization_wide_security({
+        'us-east-1': {
+            'vpc_id': 'vpc-healthcare-primary',
+            'security_tier': 'critical'
+        },
+        'us-west-2': {
+            'vpc_id': 'vpc-healthcare-backup',
+            'security_tier': 'critical'
+        }
+    })
+    
+    return deployment
+```
+
+**Expected Outcome:** Full HIPAA compliance, PHI data protection, automated audit trails, 99.99% uptime with cross-region redundancy.
 
 ## Enterprise Network ACL Security Framework
 
@@ -1038,12 +1283,328 @@ resource "aws_cloudwatch_event_target" "security_monitor_target" {
 - **Risk-Based Security**: Dynamic security rules based on security tiers and threat levels
 - **Automated Remediation**: Self-healing security configurations with automated rule updates
 
-- **Purpose:** Optional stateless firewall for controlling traffic in and out of subnets  
-- Deny everything by default
-- **Stateless:** Responses must be explicitly allowed by rules  
-- **Applies To:** Subnets (not individual instances)  
-- **Rule Evaluation:** Numbered rules evaluated in order; lowest number first (1-32766)
-- **Default NACL:** Allows all inbound and outbound traffic 
-- **Custom NACL:** Deny all by default unless specified  
-- **Supports:** Allow and deny rules (unlike Security Groups which only allow)  
-- **Use Case:** Fine-grained subnet-level control, blacklist IPs, etc.
+## Monitoring & Observability
+
+### Key Security Metrics to Monitor
+| Metric | Description | Target | Alert Threshold |
+|--------|-------------|--------|-----------------|
+| **Rule Violations** | Security policy violations detected | 0 violations/day | >5 violations/hour |
+| **Compliance Score** | Overall compliance framework adherence | >95% | <90% compliance |
+| **Threat Indicators** | Malicious IP addresses blocked | Track blocked IPs | >100 new threats/day |
+| **Policy Changes** | Network ACL rule modifications | Track all changes | Unauthorized changes |
+| **Traffic Patterns** | Anomalous network traffic detection | Normal patterns | Unusual traffic spikes |
+
+### Security Monitoring Setup
+```bash
+# Create Network ACL security monitoring dashboard
+aws cloudwatch put-dashboard \
+  --dashboard-name "Network-ACL-Security-Dashboard" \
+  --dashboard-body '{
+    "widgets": [
+      {
+        "type": "metric",
+        "properties": {
+          "metrics": [
+            ["AWS/NetworkACL", "SecurityViolations", "NetworkAclId", "acl-12345678"],
+            [".", "ComplianceScore", ".", "."],
+            [".", "ThreatBlocks", ".", "."],
+            [".", "PolicyChanges", ".", "."]
+          ],
+          "period": 300,
+          "stat": "Sum",
+          "region": "us-east-1",
+          "title": "Network ACL Security Metrics"
+        }
+      }
+    ]
+  }'
+
+# Set up security violation alerts
+aws cloudwatch put-metric-alarm \
+  --alarm-name "Network-ACL-Security-Violations" \
+  --alarm-description "High number of security violations detected" \
+  --metric-name "SecurityViolations" \
+  --namespace "AWS/NetworkACL" \
+  --statistic Sum \
+  --period 3600 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:security-alerts
+```
+
+### VPC Flow Logs Integration
+```bash
+# Enable VPC Flow Logs for Network ACL analysis
+aws ec2 create-flow-logs \
+  --resource-type VPC \
+  --resource-ids vpc-12345678 \
+  --traffic-type REJECT \
+  --log-destination-type cloud-watch-logs \
+  --log-group-name /aws/vpc/flowlogs/rejected \
+  --deliver-logs-permission-arn arn:aws:iam::123456789012:role/flowlogsRole
+
+# Create CloudWatch Insights query for Network ACL analysis
+aws logs start-query \
+  --log-group-name /aws/vpc/flowlogs/rejected \
+  --start-time $(date -d '24 hours ago' +%s) \
+  --end-time $(date +%s) \
+  --query-string 'fields @timestamp, srcaddr, dstaddr, srcport, dstport, protocol, action | filter action = "REJECT" | stats count() by srcaddr | sort count desc | limit 20'
+```
+
+## Security & Compliance
+
+### Security Best Practices
+- **Default Deny Policy:** Implement default deny configuration with explicit allow rules for required traffic flows
+- **Least Privilege Access:** Configure minimal required network access with specific port ranges and CIDR blocks
+- **Defense in Depth:** Layer Network ACLs with security groups for comprehensive network security architecture
+- **Regular Auditing:** Perform regular security assessments with automated compliance checking and violation detection
+
+### Compliance Frameworks
+- **PCI DSS:** Payment card industry data security with cardholder data environment protection and network segmentation
+- **HIPAA:** Healthcare information security with PHI data protection and comprehensive audit trails
+- **SOX:** Financial controls with network access logging and segregation of duties enforcement
+- **GDPR:** Data protection compliance with network access controls and data processing monitoring
+
+### Security Configuration Templates
+```bash
+# PCI DSS compliant Network ACL configuration
+create_pci_compliant_nacl() {
+  local vpc_id=$1
+  local zone_type=$2
+  
+  # Create PCI DSS compliant Network ACL
+  nacl_id=$(aws ec2 create-network-acl \
+    --vpc-id $vpc_id \
+    --tag-specifications "ResourceType=network-acl,Tags=[{Key=ComplianceFramework,Value=PCI-DSS},{Key=SecurityZone,Value=${zone_type}}]" \
+    --query 'NetworkAcl.NetworkAclId' --output text)
+  
+  case $zone_type in
+    "cardholder-data")
+      # Strict rules for cardholder data environment
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 50 \
+        --protocol all \
+        --rule-action deny \
+        --cidr-block 0.0.0.0/0
+      
+      # Allow only internal network access
+      aws ec2 create-network-acl-entry \
+        --network-acl-id $nacl_id \
+        --rule-number 100 \
+        --protocol tcp \
+        --rule-action allow \
+        --port-range From=443,To=443 \
+        --cidr-block 10.0.0.0/8
+      ;;
+  esac
+  
+  echo $nacl_id
+}
+```
+
+## Cost Optimization
+
+### Pricing Model
+- **Network ACL Service:** No additional charges for Network ACLs (included with VPC)
+- **VPC Flow Logs:** $0.50 per GB of log data ingested (optional for monitoring)
+- **CloudWatch Logs:** Standard CloudWatch Logs pricing for security event storage
+- **Data Transfer:** Standard AWS data transfer charges for cross-AZ and cross-region traffic
+
+### Cost Optimization Strategies
+```bash
+# Optimize VPC Flow Logs for cost efficiency
+aws ec2 create-flow-logs \
+  --resource-type NetworkInterface \
+  --resource-ids eni-12345678 \
+  --traffic-type REJECT \
+  --log-destination-type s3 \
+  --log-destination arn:aws:s3:::security-logs-bucket/flowlogs/ \
+  --log-format '${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${action}'
+
+# Set up lifecycle policies for log retention
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket security-logs-bucket \
+  --lifecycle-configuration '{
+    "Rules": [
+      {
+        "ID": "SecurityLogsRetention",
+        "Status": "Enabled",
+        "Filter": {"Prefix": "flowlogs/"},
+        "Transitions": [
+          {
+            "Days": 30,
+            "StorageClass": "STANDARD_IA"
+          },
+          {
+            "Days": 90,
+            "StorageClass": "GLACIER"
+          }
+        ]
+      }
+    ]
+  }'
+```
+
+## Automation & Infrastructure as Code
+
+### CloudFormation Template
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Enterprise Network ACL security deployment'
+
+Parameters:
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for Network ACL deployment
+  
+  SecurityTier:
+    Type: String
+    Default: high
+    AllowedValues: [critical, high, medium, low]
+    Description: Security tier for Network ACL configuration
+  
+  ComplianceFramework:
+    Type: String
+    Default: pci-dss
+    AllowedValues: [pci-dss, hipaa, sox, gdpr, soc2]
+    Description: Compliance framework for security configuration
+
+Resources:
+  WebTierNACL:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Sub 'Web-Tier-NACL-${SecurityTier}'
+        - Key: SecurityTier
+          Value: !Ref SecurityTier
+        - Key: ComplianceFramework
+          Value: !Ref ComplianceFramework
+
+  HTTPSInboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref WebTierNACL
+      RuleNumber: 100
+      Protocol: 6
+      RuleAction: allow
+      CidrBlock: 0.0.0.0/0
+      PortRange:
+        From: 443
+        To: 443
+
+  EphemeralOutboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref WebTierNACL
+      RuleNumber: 100
+      Protocol: 6
+      RuleAction: allow
+      Egress: true
+      CidrBlock: 0.0.0.0/0
+      PortRange:
+        From: 1024
+        To: 65535
+
+Outputs:
+  NetworkACLId:
+    Description: Web Tier Network ACL ID
+    Value: !Ref WebTierNACL
+    Export:
+      Name: !Sub '${AWS::StackName}-Web-Tier-NACL'
+```
+
+## Troubleshooting & Operations
+
+### Common Issues & Solutions
+
+#### Issue 1: Traffic Blocked Unexpectedly
+**Symptoms:** Applications unable to communicate despite security group rules allowing traffic
+**Cause:** Network ACL rules blocking traffic at subnet level
+**Solution:**
+```bash
+# Analyze Network ACL rules blocking traffic
+aws ec2 describe-network-acls \
+  --network-acl-ids acl-12345678 \
+  --query 'NetworkAcls[0].Entries[?RuleAction==`deny`]'
+
+# Check VPC Flow Logs for rejected traffic
+aws logs filter-log-events \
+  --log-group-name /aws/vpc/flowlogs \
+  --filter-pattern '[srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, windowstart, windowend, action="REJECT"]' \
+  --start-time $(date -d '1 hour ago' +%s)000
+
+# Add missing allow rule if needed
+aws ec2 create-network-acl-entry \
+  --network-acl-id acl-12345678 \
+  --rule-number 150 \
+  --protocol tcp \
+  --rule-action allow \
+  --port-range From=8080,To=8080 \
+  --cidr-block 10.0.0.0/16
+```
+
+#### Issue 2: Compliance Violations Detected
+**Symptoms:** Compliance monitoring alerts indicating policy violations
+**Cause:** Network ACL configuration not meeting compliance requirements
+**Solution:**
+```python
+# Automated compliance remediation
+def remediate_compliance_violation(nacl_id, violation_type):
+    ec2 = boto3.client('ec2')
+    
+    if violation_type == 'overly_permissive':
+        # Remove overly permissive rules
+        nacl = ec2.describe_network_acls(NetworkAclIds=[nacl_id])
+        for entry in nacl['NetworkAcls'][0]['Entries']:
+            if entry['CidrBlock'] == '0.0.0.0/0' and entry['RuleAction'] == 'allow':
+                if 'PortRange' in entry and entry['PortRange']['To'] - entry['PortRange']['From'] > 100:
+                    # Delete overly permissive rule
+                    ec2.delete_network_acl_entry(
+                        NetworkAclId=nacl_id,
+                        RuleNumber=entry['RuleNumber'],
+                        Egress=entry.get('Egress', False)
+                    )
+                    print(f"Removed overly permissive rule {entry['RuleNumber']}")
+```
+
+## Best Practices Summary
+
+### Security Architecture
+1. **Defense in Depth:** Use Network ACLs as first line of defense with security groups providing instance-level protection
+2. **Zone-Based Security:** Implement security zones with appropriate Network ACL policies for each tier (web, app, data)
+3. **Least Privilege:** Configure minimal required access with specific CIDR blocks and port ranges
+4. **Explicit Deny:** Use explicit deny rules for known malicious traffic sources and suspicious patterns
+
+### Operations & Management
+1. **Automated Monitoring:** Implement comprehensive security monitoring with automated violation detection and alerting
+2. **Compliance Automation:** Use automated compliance checking and remediation for regulatory framework adherence
+3. **Change Management:** Document and approve all Network ACL changes through formal change management processes
+4. **Regular Assessment:** Perform regular security assessments with penetration testing and vulnerability analysis
+
+### DevOps Integration
+1. **Infrastructure as Code:** Manage Network ACLs through Terraform, CloudFormation, or CDK for version control and automation
+2. **CI/CD Security:** Integrate security policy validation into deployment pipelines with automated testing
+3. **Environment Consistency:** Maintain consistent security policies across development, staging, and production environments
+4. **Incident Response:** Establish automated incident response procedures for security violations and threat detection
+
+---
+
+## Additional Resources
+
+### AWS Documentation
+- [AWS Network ACL User Guide](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html)
+- [VPC Security Best Practices](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html)
+- [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html)
+
+### Compliance Resources
+- [PCI DSS Network Security Requirements](https://www.pcisecuritystandards.org/documents/PCI_DSS_v3-2-1.pdf)
+- [HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
+- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
+
+### Security Tools
+- [AWS Security Hub](https://docs.aws.amazon.com/securityhub/)
+- [AWS GuardDuty](https://docs.aws.amazon.com/guardduty/)
+- [AWS CloudFormation Security Templates](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/security-best-practices.html)
