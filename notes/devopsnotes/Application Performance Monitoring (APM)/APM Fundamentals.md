@@ -1,6 +1,6 @@
-## Production Application Performance Monitoring
+# APM Fundamentals
 
-### APM Strategy and Implementation
+## APM Strategy and Implementation
 
 #### Distributed Tracing with OpenTelemetry
 ```yaml

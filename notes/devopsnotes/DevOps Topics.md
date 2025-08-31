@@ -8,7 +8,7 @@
 - [[Python]]
 - [[Bash]]
 - [[Terraform]]
-- [[Deployment Strategies (general concepts)]]
+- [[Deployment Strategies]]
 - [[Serverless]]
 - [[Application Performance Monitoring (APM)]]
 - [[Databases]]

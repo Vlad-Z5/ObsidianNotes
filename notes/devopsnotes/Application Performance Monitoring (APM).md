@@ -1,3 +1,5 @@
+# Application Performance Monitoring (APM)
+
 **Core Principles:** Application observability, distributed tracing, performance metrics, error tracking, user experience monitoring, dependency mapping, alerting and incident response
 
 ## [[APM Fundamentals]]
