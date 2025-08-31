@@ -12,8 +12,8 @@
 - [[Serverless]]
 - [[Application Performance Monitoring (APM)]]
 - [[Databases]]
-- [[Performance]]
-- [[CI/CD Pipelines]]
+- [[Performance Optimization]]
+- [[CICD]]
 
 ## Secondary Focus Areas
 
