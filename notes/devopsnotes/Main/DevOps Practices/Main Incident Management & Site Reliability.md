@@ -1,8 +1,13 @@
-# Incident Management & Site Reliability
+# Incident Management & Site Reliability: Enterprise Reliability Engineering & Crisis Response
+
+> **Domain:** Site Reliability Engineering | **Tier:** Critical Operations | **Impact:** Business continuity and customer trust
+
+## Overview
+Incident management and site reliability engineering ensure business-critical systems remain available, performant, and resilient through proactive monitoring, intelligent alerting, rapid incident response, and systematic reliability improvement. This discipline balances innovation velocity with operational stability through error budgets, service level objectives, and continuous learning from failures.
 
 ## The Alert Storm Crisis: When Everything Screams at Once
 
-**The Challenge:** TechFlow receives 2,847 alerts during a routine database maintenance window, overwhelming their on-call engineer who spends 6 hours investigating false positives while a real payment system outage goes unnoticed for 45 minutes. The alert fatigue has become so severe that engineers ignore critical notifications, and actual incidents are buried under noise from non-critical systems.
+**Case:** TechFlow, an e-commerce platform processing $800M annually with 3.2M active customers, operates with a monitoring system that generates overwhelming alert noise, creating dangerous blind spots during critical incidents. During a routine Saturday night database maintenance window for their primary MySQL cluster, their Nagios and Datadog monitoring systems explode with 2,847 individual alerts spanning every connected service, dashboard, and dependency check. On-call Site Reliability Engineer Lisa Rodriguez receives a relentless barrage of notifications: database connection timeouts (expected during maintenance), load balancer health check failures (normal during planned downtime), application server alerts for elevated response times (predictable during database maintenance), CDN cache miss spikes (expected when database is unavailable), and 200+ "disk space" alerts from log accumulation during the maintenance window. Lisa spends 6 exhausting hours manually investigating each alert category, methodically checking runbooks, SSH-ing into servers, and dismissing false positives while her phone buzzes every 30 seconds with new notifications. Meanwhile, a genuine payment processing failure begins at 11:43 PM when a payment gateway API change breaks credit card authorization for all customers, but this critical alert gets buried under 400+ maintenance-related notifications. The payment system outage continues undetected for 47 minutes, affecting $340K in failed transactions during late-night shopping hours, because Lisa's attention is consumed by meaningless maintenance alerts rather than monitoring actual business impact.
 
 **Core Challenges:**
 - 2,847 alerts generated during routine maintenance creating complete information overload

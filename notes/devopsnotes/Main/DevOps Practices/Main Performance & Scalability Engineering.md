@@ -1,8 +1,13 @@
-# Performance & Scalability Engineering
+# Performance & Scalability Engineering: Enterprise System Performance Excellence
+
+> **Domain:** System Architecture | **Tier:** Critical Infrastructure | **Impact:** System reliability and business continuity
+
+## Overview
+Performance and scalability engineering ensures systems can handle varying loads while maintaining responsiveness, availability, and user experience. This discipline combines proactive capacity planning, intelligent auto-scaling, performance optimization, and resilience engineering to create systems that gracefully handle both expected growth and unexpected traffic spikes.
 
 ## The Traffic Spike Catastrophe: When Success Kills Your System
 
-**The Challenge:** StreamingCorp's Black Friday campaign goes viral, increasing traffic from 10,000 to 500,000 concurrent users within 2 hours. Their application crashes completely at 50,000 users, database connections exhaust at 15,000 users, and the CDN can't handle the media load. Revenue loss reaches $2M per hour while the system remains down, and recovery takes 6 hours because scaling procedures are entirely manual.
+**Case:** StreamingCorp, a video streaming platform serving 2.3M subscribers across North America, launches their highly anticipated "Black Friday Exclusive Content" campaign featuring live interviews with A-list celebrities. Marketing Director Jennifer Torres projects 50,000 concurrent viewers based on previous campaigns, but the content goes viral on TikTok and Twitter, creating an unprecedented traffic surge from 10,000 to 500,000 concurrent users within 90 minutes. Their infrastructure, architected for predictable load patterns, begins failing catastrophically: the application tier crashes completely at 47,000 users when memory consumption hits 98% and garbage collection cycles consume all CPU resources; database connections exhaust at just 15,000 users because the connection pool was sized for normal operations, causing cascade failures across all services; the CDN struggles with 15TB of video traffic, 300% above contracted capacity, causing buffering and failed playouts worldwide; auto-scaling policies are disabled because "they caused problems during testing," leaving manual intervention as the only scaling option. As Chief Technology Officer David Kim watches revenue loss accumulate at $2.3M per hour, his 6-person infrastructure team frantically attempts manual server provisioning while fielding angry calls from celebrity publicists about the technical disaster. The complete recovery takes 7 hours, by which time the viral moment has passed, customer complaints flood social media, and three major content partners threaten contract cancellation due to "technical incompetence."
 
 **Core Challenges:**
 - Application crashing completely at 50,000 users despite expecting much higher capacity

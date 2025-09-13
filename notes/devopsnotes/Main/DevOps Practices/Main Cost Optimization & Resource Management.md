@@ -1,8 +1,13 @@
-# Cost Optimization & Resource Management
+# Cost Optimization & Resource Management: Enterprise FinOps & Resource Efficiency
+
+> **Domain:** Financial Operations | **Tier:** Business-Critical Management | **Impact:** Cost efficiency and resource utilization optimization
+
+## Overview
+Cost optimization and resource management enable organizations to maximize cloud and infrastructure value while minimizing waste through intelligent resource allocation, automated lifecycle management, and data-driven financial operations. This discipline balances performance requirements with cost efficiency through continuous optimization, usage monitoring, and architectural decision-making that considers both technical and financial impacts.
 
 ## The Cloud Bill Shock: When Innovation Becomes Bankruptcy
 
-**The Challenge:** StartupScale's AWS bill jumped from $5K to $85K monthly in six months with no corresponding revenue increase. Investigation reveals 60% of resources are idle development environments running 24/7, over-provisioned production instances "just to be safe," and data transfer costs exploding due to poor architecture decisions. The team has no visibility into cost drivers or optimization opportunities.
+**Case:** StartupScale, a Series A SaaS company with 25 engineers and $2.3M annual revenue, experiences a catastrophic cloud cost explosion that threatens their runway and forces difficult business decisions. Their AWS bill skyrockets from $5,200 monthly to $87,400 monthly over just 6 months, despite revenue growing only 15% during the same period. Chief Financial Officer Jennifer Martinez discovers the cost drivers through painful investigation: 60% of their $52K monthly bill comes from idle development environments that engineers spin up for testing and forget to shut down, with 73 EC2 instances running continuously in "dev-sandbox-" environments that haven't been accessed in months; production instances are massively over-provisioned because "we don't want performance issues," including 12 m5.24xlarge instances (96 vCPUs each) serving an application that peaks at 15% CPU utilization; data transfer costs consume $18K monthly due to poor architectural decisions placing databases in us-east-1 while application servers run in eu-west-1, generating massive cross-region traffic; storage costs accumulate $9K monthly from 847 EBS snapshots that were created "for backup" but never cleaned up, and 23TB of S3 data in expensive Standard storage that could be in Glacier. CTO David Rodriguez admits: "We optimized for development speed and ignored costs completely. Now our burn rate threatens our Series B timeline and we're forced to choose between hiring developers or paying AWS bills."
 
 **Core Challenges:**
 - AWS bill increased 1,700% in six months with no revenue correlation or business justification

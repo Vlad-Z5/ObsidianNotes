@@ -1,0 +1,192 @@
+# Multi-cloud / hybrid networking patterns (AWS–GCP, AWS–Azure, private cloud integration)
+
+## 1. Core Problem Statement
+
+When integrating AWS with an on-prem datacenter, you need:
+
+Private, low-latency, high-reliability links for production workloads.
+
+Consistent network addressing & routing across environments.
+
+Security and governance for cross-boundary traffic.
+
+Failover paths for link loss or provider issues.
+
+Operational visibility into cross-cloud traffic.
+
+## 2. Common Patterns
+
+### Pattern 1 – VPN over the Internet
+
+Services: AWS Site-to-Site VPN (IPsec) + On-Prem VPN appliance (Cisco, Fortinet, Palo Alto, etc.).
+
+When to use:
+
+Low to moderate throughput (<1 Gbps sustained).
+
+Quick to deploy, cheaper than Direct Connect.
+
+Disaster recovery path or backup for Direct Connect.
+
+Topology:
+
+AWS Virtual Private Gateway (VGW) or Transit Gateway (TGW) with VPN attachment.
+
+Two redundant tunnels to different AWS endpoints.
+
+Pros: Fast setup, flexible, no physical link.
+
+Cons: Internet-dependent, variable latency, jitter.
+
+### Pattern 2 – AWS Direct Connect
+
+Services: AWS Direct Connect (DX) + on-prem router (connected via colocation facility or partner).
+
+When to use:
+
+High throughput (1–100 Gbps).
+
+Low latency, stable SLA-bound link.
+
+Compliance requirements (no public internet path).
+
+Topology:
+
+DX location → AWS DX Router → Virtual Interface (VIF) → VGW or TGW.
+
+Private VIF for VPC private IP access, Public VIF for public AWS service access, or Transit VIF for multiple VPCs.
+
+Pros: Predictable performance, secure, dedicated bandwidth.
+
+Cons: Higher cost, longer provisioning lead time, dependent on physical facilities.
+
+### Pattern 3 – Hybrid with Transit Gateway
+
+Services: AWS Transit Gateway (TGW) as central hub for multiple VPCs + Direct Connect/VPN for on-prem.
+
+When to use:
+
+Multi-VPC/multi-account architectures.
+
+Central routing policy enforcement.
+
+Topology:
+
+TGW peered to VGWs/VPCs.
+
+One or more TGW attachments to Direct Connect Gateway or Site-to-Site VPN.
+
+Pros: Central control, scales well, multi-account ready.
+
+Cons: Additional TGW data processing costs.
+
+### Pattern 4 – Private Cloud (VMware, OpenStack) with AWS
+
+Services: AWS Direct Connect + VMware HCX / NSX or OpenStack Neutron for routing.
+
+Integration Points:
+
+Extend L2 networks (VMware HCX) for seamless VM migration.
+
+Use TGW or VGW for L3 routing between AWS VPC and on-prem VLANs.
+
+## 3. Addressing & Routing Design
+
+### IP Address Management
+
+Avoid overlapping CIDR blocks between on-prem and AWS VPCs.
+
+Maintain a centralized IPAM (NetBox, BlueCat, Infoblox) for allocations.
+
+Use RFC1918 ranges consistently; reserve address space for future expansion.
+
+### Routing Models
+
+Static routing for small, simple environments.
+
+Dynamic routing (BGP) for high availability:
+
+Required for Direct Connect to advertise multiple prefixes.
+
+Allows route prioritization & failover between DX and VPN.
+
+## 4. Security & Segmentation
+
+### Network Segmentation
+
+Segment workloads by environment: Dev/QA/Prod each in separate VPCs or TGW route domains.
+
+Use Network ACLs, Security Groups, and TGW route tables to control traffic.
+
+### Encryption
+
+VPN over internet: IPsec mandatory.
+
+Direct Connect: no encryption by default — use MACsec (if supported) or overlay VPN for sensitive workloads.
+
+### Boundary Enforcement
+
+Deploy firewalls (on-prem and/or AWS-native) at ingress/egress.
+
+Integrate AWS Network Firewall or appliance in a hub VPC for inspection.
+
+Use AWS PrivateLink for service-to-service private access (no routing needed).
+
+## 5. Resiliency Patterns
+
+### Redundancy
+
+Always provision dual DX connections in separate locations (if mission-critical).
+
+Keep VPN as backup — BGP can prioritize DX over VPN.
+
+### Multi-Region
+
+If AWS workloads span multiple regions:
+
+Separate DX/VPN per region, or use TGW inter-region peering.
+
+Consider latency and failover complexity.
+
+## 6. AWS On-Prem Connectivity Reference Designs
+
+### A. Small Enterprise
+
+On-Prem Router ---[IPsec VPN]--- VGW --- VPC
+
+### B. Large Enterprise Multi-VPC
+
+On-Prem Core Routers ===[DX+VPN]=== Direct Connect Gateway === TGW === Multiple VPCs
+
+### C. Hybrid Cloud with Segmentation
+
+On-Prem Core
+   |           +----DX----> DXGW
+   |           |             |
+  [Firewall]---+          [TGW]---[Prod VPCs]
+   |                         |
+   +----VPN (backup)         +---[Dev/QA VPCs]
+
+## 7. Operational Considerations
+
+### Monitoring:
+
+AWS CloudWatch for VPN/DX link status, latency, packet loss.
+
+On-prem NMS (SolarWinds, PRTG, Zabbix) for cross-cloud visibility.
+
+### Change Control:
+
+Test routing changes in staging; route leaks can take down the hybrid link.
+
+### Incident Runbooks:
+
+DX failure → BGP failover to VPN → alert & escalate.
+
+### Throughput Bottlenecks:
+
+VPN throughput limited by single tunnel CPU on both ends.
+
+### Cost Visibility:
+
+DX data transfer is cheaper than public internet egress from AWS, but DX port hours and cross-region add up.

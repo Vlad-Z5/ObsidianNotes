@@ -4,10 +4,9 @@
 
 ### [[Main DevOps Culture & Mindset]]
 ### [[Main Agile & Lean Principles]]
-### [[Main Security Fundamentals]]
+### [[Main Security & Compliance]]
 ### [[Main DevOps Lifecycle & Methodologies]]
 ### [[Main Infrastructure as Code Principles]]
-### [[Main Security & Compliance by Design]]
 ### [[Main Team Collaboration & Communication]]
 ### [[Main DevOps Transformation Strategy]]
 

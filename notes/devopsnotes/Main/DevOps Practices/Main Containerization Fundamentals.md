@@ -1,8 +1,13 @@
-# Containerization Fundamentals
+# Containerization Fundamentals: Enterprise Container Strategy & Runtime Excellence
+
+> **Domain:** Application Architecture | **Tier:** Essential Infrastructure | **Impact:** Application portability and deployment efficiency
+
+## Overview
+Containerization fundamentals enable consistent, portable, and efficient application deployment across diverse environments through lightweight virtualization, dependency isolation, and standardized runtime environments. Effective containerization strategies optimize resource utilization, enhance security, and simplify deployment while maintaining performance and reliability.
 
 ## The Container Performance Mystery: When Everything Slows Down
 
-**The Challenge:** MediaFlow's video streaming service runs perfectly on developer laptops but becomes sluggish when containerized. Docker containers consume 3x more memory than expected, startup times increase from 2 seconds to 45 seconds, and the application randomly crashes with out-of-memory errors. The team discovers they're running production workloads with development container configurations.
+**Case:** MediaFlow, a video streaming platform serving 1.8M subscribers with peak traffic of 500,000 concurrent streams, experiences baffling performance degradation when migrating their Node.js streaming service from traditional VM-based deployment to Docker containers. During local development on MacBook Pros with 32GB RAM, Senior Developer Marcus Kim achieves excellent performance: 2-second application startup, 150MB memory consumption, and smooth 4K video transcoding. However, when the same application runs in production Docker containers on AWS ECS, performance becomes catastrophically poor: container startup time jumps from 2 seconds to 47 seconds due to inefficient image layers, memory consumption explodes to 450MB per container because of included development dependencies, video transcoding performance drops 60% due to incorrect resource limits, and containers randomly crash with OOM (Out of Memory) errors during peak traffic because heap size limits aren't configured for production workloads. Investigation reveals that the team naively containerized their development environment: their Dockerfile installs the complete Node.js development toolchain including webpack-dev-server, debugging utilities, and testing frameworks; container resource limits default to unlimited, causing resource contention on shared ECS instances; the base image is ubuntu:latest (700MB) instead of a minimal alpine or distroless image; application logs flood container storage because log rotation isn't configured, eventually filling disk space and causing crashes. Chief Technology Officer Jennifer Rodriguez realizes they've been "running development laptops in production" through containers, negating all containerization benefits while introducing new performance penalties.
 
 **Core Challenges:**
 - Container resource limits not configured for production workloads
