@@ -1,106 +1,63 @@
-# SLO/SLI/SLA definition & enforcement
+# Architect: SLO SLI SLA definition & enforcement
 
-# Content from previous subtopic: [[Logging/metrics/tracing architecture (ELK/EFK, Prometheus, Grafana, OpenTelemetry)
+Understanding and enforcing service-level objectives is key for balancing reliability, risk, and business needs.
 
-Checklist bullets: RBAC least privilege, network policy deny-all, quotas, taints/tolerations, separate node pools, observability & quotas on logging/metrics.
-
-Q: What’s your approach to managing 10+ Kustomize overlays without drift or duplication?
-
-Model answer:
-
-Adopt a base + overlay pattern: one canonical base per app, overlays per environment.
-
-Don’t duplicate resources — use Kustomize patches/vars and generators.
-
-Keep environment config minimal (only environment-specific values).
-
-Use templating for secrets/configMaps via sealed-secrets/External Secrets; store overlays in Git as branches or directories with clear naming convention.
-
-Validate overlays in CI: kustomize build + kubectl apply --server-dry-run=client + schema validation (kubeval/custom schema).
-
-Periodic automated drift detection: generate manifests from each overlay and compare to canonical base or golden images.
-What they’re testing: reproducibility, GitOps hygiene, drift detection.
-Keywords to use: base/overlay, kustomize patchesStrategicPatch, sealed-secrets, CI validation, schema validation, GitOps.
-
-Q: Explain how you’d secure cross-region S3 replication and validate data integrity at scale.
-
-Model answer:
-
-Secure replication:
-
-Use S3 Replication (CRR/Cross-Region Replication) with AWS KMS — use separate CMKs in source/dest and grant replication role permissions.
-
-Enforce bucket policies & VPC endpoints, block public access.
-
-Use IAM replication role restricted to necessary actions.
-
-Use S3 Object Lock (if immutability required).
-
-Validate integrity:
-
-Rely on S3 ETag/Checksum support (S3 supports MD5/CRC/sha256 depending on upload type).
-
-Enable S3 Replication Time Control + Replication metrics & notifications for failures.
-
-Periodic validation: use S3 Inventory + manifest to compare object checksums between source and destination (or use AWS SDK to compute/check checksums).
-
-For very large scales: use checksumming pipeline (Lambda/EMR) that samples or parallel compares objects; use Batch Operations to trigger validation jobs.
-What they’re testing: KMS & IAM, practical integrity checks at scale, monitoring/alerts.
-Checklist bullets: KMS keys & grants, replication config, S3 Inventory, metrics & alerts, batch validation jobs.
-
-Q: What happens when systemd hits a failing unit in a containerized node? How would you auto-recover?
-
-Model answer:
-
-# Content from previous subtopic: [[Documentation and internal training programs
-
-Documentation and internal training programs.
-
- Communication of SLO tradeoffs to leadership.
-
- Cross-team design reviews and alignment meetings.
-
- Vendor/tool evaluation and ROI assessment.
-
- Mentorship plan for DevOps/SRE engineers.
-
- Conflict resolution between speed and safety.
-
-8. Cost & Efficiency
-
- Cost visibility dashboards per team/project.
-
- Auto-scaling and scheduling for cost optimization.
-
- Use of spot/preemptible instances where safe.
-
- Cloud-native cost control tools (AWS Cost Explorer, GCP Billing, Kubecost).
-
- Chargeback/showback reporting.
-
-9. Personal Preparation
-
- Hands-on labs for all major cloud providers you claim expertise in.
-
- Build/tear down a multi-region EKS/GKE cluster with IaC.
-
- Run a full incident simulation end-to-end.
-
- Practice whiteboarding hybrid cloud network topologies.
-
- Review recent CNCF tools and patterns.
-
- Stay up-to-date with security CVEs for infra stack components.
-
-I can turn this into a printable one-page DevOps Architect Interview & Role Checklist with sub-bullets for each skill, so you can tick off readiness and carry it as a reference.
-
-Do you want me to make that condensed printable version? It’ll be a lot easier to scan than this long format.
-
-
-
-
-
-
-8. Observability & Monitoring (Metrics, Logging, Tracing, SLOs, Distributed Debugging)
-
-A DevOps Architect must design observability as a first-class citizen in infra & app platforms.
+## 1. Definitions
+- ### SLI (Service Level Indicator)
+	- Quantitative measure of a system attribute.
+	- Examples: request latency, error rate, uptime.
+	- "What you actually measure."
+- ### SLO (Service Level Objective)
+	- Target value for an SLI over a specific period.
+	- Example: 99.9% requests < 300ms over 30 days.
+	- "The reliability goal you aim for."
+- ### SLA (Service Level Agreement)
+	- Formal agreement with business/customers.
+	- Typically includes penalties if SLOs are violated.
+	- Example: 99.9% uptime with credit for downtime exceeding the SLA.
+## 2. SLO/SLI Selection
+- ### Common SLIs
+	- Error Rate: % of failed requests.
+	- Latency / Response Time: P95/P99 for critical endpoints.
+	- Availability: Uptime per service or component.
+	- Throughput: Transactions per second, message processing rate.
+	- Resource Saturation: CPU, memory, disk I/O thresholds.
+- ### Selection Tip
+	- Focus on user-impacting metrics rather than purely system-level metrics.
+## 3. Implementation Patterns
+- ### Metrics Collection
+	- Use Prometheus or Cloud-native metrics to record SLIs.
+	- Track rolling windows (e.g., 7-day, 30-day) for SLO evaluation.
+- ### Alerting
+	- Alert when SLOs approach error budget burn rate.
+	- Integrate with PagerDuty, Slack, or Opsgenie.
+- ### Error Budgets
+	- Error budget = 1 – SLO.
+	- Allows controlled risk: if error budget consumed, feature releases pause.
+	- Enables tradeoffs between velocity and reliability.
+- ### Dashboards
+	- Show SLO compliance, remaining error budget, and historical trends.
+	- Include business-facing views for leadership.
+## 4. Enforcement & Governance
+- ### Automation
+	- CI/CD can pause deployments if error budget is exceeded.
+	- Rollbacks triggered automatically when SLO thresholds are violated.
+- ### RCA Integration
+	- Post-incident analysis checks which SLOs were violated.
+	- Guides operational improvements.
+- ### Cross-team Alignment
+	- Devs, SREs, and product teams agree on realistic SLOs.
+	- Use error budgets to communicate trade-offs.
+## 5. Best Practices
+- ### Start Simple
+	- Start with a few critical SLIs; avoid over-monitoring.
+- ### Realistic Goals
+	- Ensure SLOs are realistic and measurable.
+- ### Business Focus
+	- Link SLOs to business impact, not just technical thresholds.
+- ### Continuous Monitoring
+	- Use automated dashboards and alerts to track compliance continuously.
+- ### Process Integration
+	- Incorporate error budget policy into deployment workflows.
+- ### Regular Review
+	- Review and update SLOs periodically as usage patterns change.

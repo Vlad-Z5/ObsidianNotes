@@ -304,6 +304,197 @@ journalctl -f                          # Follow logs in real-time
 dmesg                                  # Kernel ring buffer
 ```
 
+## System Troubleshooting Methodology
+
+### Systematic Problem-Solving Approach
+
+When systems run slowly or behave unexpectedly, follow this structured methodology:
+
+#### **1. Understanding the Problem**
+- **Processing**: CPU-bound tasks, high load averages
+- **Disk I/O**: Storage bottlenecks, filesystem issues
+- **Networking**: Connectivity, bandwidth, latency issues
+- **Memory**: RAM exhaustion, swapping, memory leaks
+- **Hardware**: Hardware failures, driver issues
+
+#### **2. Troubleshooting Steps**
+```bash
+# Step 1: Verify you're on the correct system
+hostname && whoami
+cat /etc/os-release
+
+# Step 2: Check disk space (common cause of issues)
+df -h                               # Filesystem usage
+du -sh /var/log /tmp /home          # Check large directories
+
+# Step 3: Check processing and memory
+top                                 # Real-time process view
+free -h                             # Memory usage
+lsmem                               # Memory configuration
+cat /proc/meminfo                   # Detailed memory info
+vmstat 1 5                          # Virtual memory statistics
+pmap <PID>                          # Memory map of specific process
+
+# Step 4: Check disk I/O issues
+iostat -y 5                         # I/O statistics
+lsof                                # List open files
+iotop                               # I/O usage by process
+
+# Step 5: Check network issues
+ss -tuln                            # Open ports and connections
+netstat -i                          # Network interface statistics
+tcpdump -i eth0                     # Packet capture
+iftop                               # Network bandwidth usage
+
+# Step 6: Check system uptime and load
+uptime                              # System uptime and load average
+w                                   # Logged in users and load
+
+# Step 7: Check system logs
+journalctl -f                       # Follow system logs
+dmesg | tail                        # Recent kernel messages
+tail -f /var/log/syslog             # System log messages
+
+# Step 8: Check hardware status
+lscpu                               # CPU information
+lshw                                # Hardware information
+dmidecode                           # DMI/SMBIOS information
+```
+
+#### **3. Advanced Troubleshooting Tools**
+```bash
+# Performance analysis
+htop                                # Enhanced process viewer
+iotop                               # I/O monitoring
+iptraf                              # Network traffic analyzer
+psacct                              # Process accounting
+
+# System call tracing
+strace -p <PID>                     # Trace system calls
+ltrace -p <PID>                     # Trace library calls
+
+# Network troubleshooting
+mtr google.com                      # Network path analysis
+nmap -sn 192.168.1.0/24            # Network discovery
+ss -i                               # Socket statistics with details
+```
+
+### **Performance Baseline and Monitoring**
+
+#### **Establishing System Baselines**
+```bash
+# CPU baseline
+lscpu                               # CPU architecture info
+cat /proc/cpuinfo                   # Detailed CPU information
+nproc                               # Number of processing units
+
+# Memory baseline
+free -h                             # Current memory usage
+cat /proc/meminfo | grep -E 'MemTotal|MemFree|MemAvailable'
+
+# Storage baseline
+lsblk -f                            # Block devices and filesystems
+df -h                               # Filesystem usage
+iostat -x 1 5                       # I/O performance baseline
+
+# Network baseline
+ip addr show                        # Network interfaces
+ethtool eth0                        # Network interface details
+ss -s                               # Socket statistics summary
+```
+
+#### **Continuous Monitoring Strategy**
+```bash
+# Create monitoring scripts
+# Memory usage trend
+echo "$(date): $(free | grep Mem | awk '{print $3/$2 * 100.0}')% memory used" >> /var/log/memory.log
+
+# Disk usage trend
+echo "$(date): $(df / | tail -1 | awk '{print $5}') root disk used" >> /var/log/disk.log
+
+# Load average trend
+echo "$(date): $(uptime | awk -F'load average:' '{print $2}')" >> /var/log/load.log
+
+# Monitor specific processes
+ps aux --sort=-%cpu | head -10 >> /var/log/top-cpu.log
+ps aux --sort=-%mem | head -10 >> /var/log/top-mem.log
+```
+
+### **Common System Issues and Solutions**
+
+#### **High Load Average**
+```bash
+# Identify cause
+uptime                              # Check load average
+top -o %CPU                         # Sort by CPU usage
+ps aux --sort=-%cpu | head -20      # Top CPU consumers
+
+# Solutions
+nice -n 19 cpu_intensive_process    # Lower process priority
+killall -STOP process_name          # Temporarily stop process
+systemctl stop service_name         # Stop problematic service
+```
+
+#### **Memory Issues**
+```bash
+# Identify memory problems
+free -h                             # Overall memory usage
+ps aux --sort=-%mem | head -20      # Memory-hungry processes
+cat /proc/meminfo | grep -E 'SwapTotal|SwapFree'  # Swap usage
+
+# Solutions
+sync && echo 3 > /proc/sys/vm/drop_caches  # Clear caches (emergency only)
+systemctl restart memory_hungry_service    # Restart problematic service
+kill -TERM <PID>                           # Terminate memory-leaking process
+```
+
+#### **Disk Space Issues**
+```bash
+# Find large files and directories
+du -sh /* | sort -hr                # Large directories in root
+find / -size +100M -type f          # Files larger than 100MB
+find /var/log -name "*.log" -size +50M  # Large log files
+
+# Clean up solutions
+journalctl --vacuum-size=100M       # Limit journal size
+apt autoremove && apt autoclean     # Clean package cache
+find /tmp -mtime +7 -delete         # Clean old temporary files
+logrotate -f /etc/logrotate.conf    # Force log rotation
+```
+
+## System Monitoring and Performance Analysis
+
+### **Essential System Metrics**
+
+#### **The Four Golden Signals**
+1. **Latency**: Response time of requests
+2. **Traffic**: Demand on the system
+3. **Errors**: Rate of failed requests
+4. **Saturation**: How full the system is
+
+#### **Key Linux Performance Indicators**
+```bash
+# CPU Metrics
+cat /proc/loadavg                   # Load average (1, 5, 15 min)
+vmstat 1 5                          # CPU usage, context switches
+mpstat -P ALL 1 5                   # Per-CPU statistics
+
+# Memory Metrics
+cat /proc/meminfo                   # Detailed memory information
+vmstat -s                           # Memory statistics summary
+sar -r 1 10                         # Memory usage over time
+
+# Disk I/O Metrics
+iostat -x 1 5                       # Extended I/O statistics
+sar -d 1 10                         # Disk activity over time
+lsof | wc -l                        # Number of open files
+
+# Network Metrics
+ss -s                               # Socket statistics
+sar -n DEV 1 10                     # Network interface statistics
+netstat -i                          # Network interface statistics
+```
+
 ## Reference to Specialized Topics
 
 For detailed coverage of specific Linux administration areas, refer to these specialized guides:
@@ -313,8 +504,7 @@ For detailed coverage of specific Linux administration areas, refer to these spe
 - **[[Linux System Administration]]** - Systemd, services, logging, and system configuration
 - **[[Linux Security]]** - Security hardening, auditing, and access control
 - **[[Linux Storage Management]]** - Disk management, filesystems, and LVM
-- **[[Linux Commands]]** - Comprehensive command reference
-- **[[Linux Permissions]]** - Detailed permission management
-- **[[Linux Shell Scripting Essentials]]** - Bash scripting fundamentals
+- **[[Linux Commands]]** - Comprehensive command reference with DevOps focus
+- **[[Linux Shell Scripting Essentials]]** - Bash scripting fundamentals and automation
 
-This fundamental guide provides the core concepts needed to understand Linux systems, while the specialized guides dive deep into specific administrative areas essential for DevOps work.
+This fundamental guide provides the core concepts and troubleshooting methodology needed to understand and maintain Linux systems effectively in DevOps environments.

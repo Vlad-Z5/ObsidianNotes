@@ -1,3 +1,7 @@
+# Kubernetes GitOps & CI/CD
+
+**GitOps and CI/CD** provide declarative, automated, and reliable deployment strategies for Kubernetes applications, enabling infrastructure as code, continuous delivery, and operational excellence at enterprise scale.
+
 ## GitOps & CI/CD Comprehensive Guide
 
 ### GitOps Fundamentals
@@ -1187,3 +1191,609 @@ spec:
 - Caching strategies for builds
 - Resource limits and requests
 - Proper error handling and retries
+
+---
+
+## Production Scenarios
+
+### Enterprise Multi-Cluster GitOps
+
+**ArgoCD ApplicationSet for Multi-Cluster:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: multi-cluster-apps
+  namespace: argocd
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          environment: production
+  - git:
+      repoURL: https://github.com/company/k8s-manifests
+      revision: HEAD
+      directories:
+      - path: apps/*
+  template:
+    metadata:
+      name: '{{path.basename}}-{{name}}'
+    spec:
+      project: production
+      source:
+        repoURL: https://github.com/company/k8s-manifests
+        targetRevision: HEAD
+        path: '{{path}}'
+      destination:
+        server: '{{server}}'
+        namespace: '{{path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+```
+
+**Cluster Generator with Values:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-specific-config
+spec:
+  generators:
+  - clusters:
+      values:
+        region: '{{metadata.labels.region}}'
+        environment: '{{metadata.labels.environment}}'
+        clusterName: '{{name}}'
+  template:
+    metadata:
+      name: 'cluster-config-{{values.clusterName}}'
+    spec:
+      source:
+        repoURL: https://github.com/company/cluster-configs
+        path: overlays/{{values.environment}}
+        helm:
+          valueFiles:
+          - values-{{values.region}}.yaml
+          parameters:
+          - name: cluster.name
+            value: '{{values.clusterName}}'
+          - name: cluster.region
+            value: '{{values.region}}'
+      destination:
+        server: '{{server}}'
+        namespace: cluster-config
+```
+
+### Blue-Green Deployment with GitOps
+
+**ArgoCD Rollout Integration:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: web-app-rollout
+  namespace: production
+spec:
+  replicas: 10
+  strategy:
+    blueGreen:
+      activeService: web-app-active
+      previewService: web-app-preview
+      autoPromotionEnabled: false
+      scaleDownDelaySeconds: 30
+      prePromotionAnalysis:
+        templates:
+        - templateName: success-rate
+        args:
+        - name: service-name
+          value: web-app-preview
+      postPromotionAnalysis:
+        templates:
+        - templateName: success-rate
+        args:
+        - name: service-name
+          value: web-app-active
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: web-app
+        image: registry.company.com/web-app:v1.2.3
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: success-rate
+    interval: 30s
+    count: 10
+    successCondition: result[0] >= 0.95
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring:9090
+        query: |
+          sum(rate(http_requests_total{service="{{args.service-name}}",status!~"5.."}[5m])) /
+          sum(rate(http_requests_total{service="{{args.service-name}}"}[5m]))
+```
+
+### GitOps with Sealed Secrets
+
+**Sealed Secret Integration:**
+
+```yaml
+# Install Sealed Secrets Controller
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sealed-secrets-controller
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: sealed-secrets-controller
+  template:
+    metadata:
+      labels:
+        name: sealed-secrets-controller
+    spec:
+      serviceAccountName: sealed-secrets-controller
+      containers:
+      - name: sealed-secrets-controller
+        image: quay.io/bitnami/sealed-secrets-controller:v0.18.0
+        command:
+        - controller
+        args:
+        - --key-renew-period=720h
+        - --private-key-annotations=true
+        - --private-key-labels=true
+        ports:
+        - containerPort: 8080
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+---
+# SealedSecret Example
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: app-secrets
+  namespace: production
+spec:
+  encryptedData:
+    database-password: AgBy3i4OJSWK+PiTySYZZA9rO43cGDEQAx...
+    api-key: AgAKAoiQm7xFRAkV2Z9F+Q2k8sBMLGYVx...
+  template:
+    metadata:
+      name: app-secrets
+      namespace: production
+    type: Opaque
+```
+
+### Progressive Delivery with Argo Rollouts
+
+**Canary with Traffic Splitting:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: canary-rollout
+spec:
+  replicas: 10
+  strategy:
+    canary:
+      canaryService: canary-service
+      stableService: stable-service
+      trafficRouting:
+        istio:
+          virtualService:
+            name: rollout-vsvc
+            routes:
+            - primary
+          destinationRule:
+            name: rollout-destrule
+            canarySubsetName: canary
+            stableSubsetName: stable
+      steps:
+      - setWeight: 5
+      - pause:
+          duration: 2m
+      - setWeight: 10
+      - pause:
+          duration: 2m
+      - analysis:
+          templates:
+          - templateName: success-rate
+          - templateName: latency
+          args:
+          - name: service-name
+            value: canary-service
+      - setWeight: 20
+      - pause:
+          duration: 5m
+      - setWeight: 40
+      - pause:
+          duration: 5m
+      - setWeight: 60
+      - pause:
+          duration: 5m
+      - setWeight: 80
+      - pause:
+          duration: 5m
+  selector:
+    matchLabels:
+      app: rollout-canary
+  template:
+    metadata:
+      labels:
+        app: rollout-canary
+    spec:
+      containers:
+      - name: rollouts-demo
+        image: argoproj/rollouts-demo:blue
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 5m
+```
+
+---
+
+## Troubleshooting and Debugging
+
+### ArgoCD Troubleshooting
+
+**Common Issues and Solutions:**
+
+```bash
+# Check ArgoCD Application status
+kubectl get applications -n argocd
+
+# Describe specific application
+kubectl describe application web-app -n argocd
+
+# Check ArgoCD server logs
+kubectl logs -n argocd deployment/argocd-server
+
+# Check repository server logs
+kubectl logs -n argocd deployment/argocd-repo-server
+
+# Force refresh application
+argocd app get web-app --refresh
+
+# Hard refresh (bypass cache)
+argocd app get web-app --hard-refresh
+
+# Sync application
+argocd app sync web-app
+
+# Check sync status
+argocd app wait web-app
+```
+
+**Application Sync Issues:**
+
+```yaml
+# Application with detailed sync options
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: debug-app
+spec:
+  # Ignore differences for known issues
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas
+  - group: ""
+    kind: Service
+    managedFieldsManagers:
+    - kube-controller-manager
+
+  # Sync waves for ordered deployment
+  source:
+    repoURL: https://github.com/company/manifests
+    path: app
+    directory:
+      include: "*.yaml"
+      exclude: "secrets/*"
+
+  syncPolicy:
+    syncOptions:
+    # Skip dry run for CRDs
+    - SkipDryRunOnMissingResource=true
+    # Replace resources instead of applying
+    - Replace=true
+    # Force sync even if no changes detected
+    - Force=true
+    # Apply out of sync resources only
+    - ApplyOutOfSyncOnly=true
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+```
+
+### Flux v2 Troubleshooting
+
+**Debugging Commands:**
+
+```bash
+# Check Flux system status
+flux check
+
+# Get all Flux resources
+flux get all
+
+# Check specific source
+flux get sources git
+flux get sources helm
+
+# Check kustomizations
+flux get kustomizations
+
+# Check helm releases
+flux get helmreleases
+
+# Suspend and resume
+flux suspend kustomization web-app
+flux resume kustomization web-app
+
+# Force reconciliation
+flux reconcile source git app-manifests
+flux reconcile kustomization web-app
+
+# Check logs
+flux logs --level=debug
+flux logs --kind=Kustomization --name=web-app
+```
+
+**Source Authentication Issues:**
+
+```yaml
+# Git source with SSH key
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: private-repo
+spec:
+  interval: 5m
+  url: ssh://git@github.com/company/private-manifests
+  secretRef:
+    name: ssh-credentials
+  verify:
+    mode: head
+    secretRef:
+      name: pgp-public-keys
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-credentials
+type: Opaque
+data:
+  identity: |
+    LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K...
+  identity.pub: |
+    c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCZ1FEK...
+  known_hosts: |
+    Z2l0aHViLmNvbSBzc2gtcnNhIEFBQUFCM056YUMxeWMyRUFBQUFE...
+```
+
+### Tekton Troubleshooting
+
+**Pipeline Debugging:**
+
+```bash
+# List pipeline runs
+tkn pipelinerun list
+
+# Describe pipeline run
+tkn pipelinerun describe web-app-pipeline-run-xyz
+
+# Get logs
+tkn pipelinerun logs web-app-pipeline-run-xyz
+
+# Follow logs in real-time
+tkn pipelinerun logs web-app-pipeline-run-xyz -f
+
+# List task runs
+tkn taskrun list
+
+# Describe failed task run
+tkn taskrun describe build-task-run-abc
+
+# Check workspace volumes
+kubectl get pvc -l tekton.dev/pipelineRun=web-app-pipeline-run-xyz
+```
+
+**Failed Task Recovery:**
+
+```yaml
+# Task with retry and timeout
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: resilient-task
+spec:
+  params:
+  - name: retries
+    default: "3"
+  steps:
+  - name: main-task
+    image: alpine:latest
+    timeout: 10m
+    script: |
+      #!/bin/sh
+      set -e
+
+      # Retry logic
+      for i in $(seq 1 $(params.retries)); do
+        echo "Attempt $i"
+        if command_that_might_fail; then
+          echo "Success on attempt $i"
+          exit 0
+        else
+          echo "Failed attempt $i"
+          if [ $i -eq $(params.retries) ]; then
+            echo "All attempts failed"
+            exit 1
+          fi
+          sleep 5
+        fi
+      done
+
+  # Debug sidecar
+  sidecars:
+  - name: debug
+    image: busybox
+    command: ['sh']
+    args: ['-c', 'while true; do sleep 30; done']
+```
+
+### Performance Optimization
+
+**ArgoCD Performance Tuning:**
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  # Increase concurrent reconciliation
+  application.instanceLabelKey: argocd.argoproj.io/instance
+
+  # Repository cache settings
+  reposerver.parallelism.limit: "20"
+  reposerver.disable.git.lfs: "true"
+
+  # Application controller settings
+  application.controller.operation.processors: "20"
+  application.controller.status.processors: "20"
+  application.controller.self.heal.timeout.seconds: "5"
+
+  # Resource exclusions for performance
+  resource.exclusions: |
+    - apiGroups:
+      - "tekton.dev"
+      kinds:
+      - "TaskRun"
+      - "PipelineRun"
+    - apiGroups:
+      - "argoproj.io"
+      kinds:
+      - "Workflow"
+      - "WorkflowTemplate"
+```
+
+**Flux Resource Optimization:**
+
+```yaml
+# Source with optimized settings
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: optimized-source
+spec:
+  interval: 5m
+  timeout: 60s
+  url: https://github.com/company/k8s-manifests
+  ref:
+    branch: main
+  # Shallow clone for performance
+  gitImplementation: go-git
+  recurseSubmodules: false
+  # Include only necessary paths
+  include:
+  - "apps/**"
+  - "infrastructure/**"
+  ignore: |
+    /*
+    !/apps/
+    !/infrastructure/
+    /apps/*/docs/
+    /apps/*/tests/
+```
+
+---
+
+## Cross-References
+
+**Related Documentation:**
+- [Kubernetes Production Best Practices](Kubernetes%20Production%20Best%20Practices.md) - Resource management, security, and deployment strategies
+- [Kubernetes Security](Kubernetes%20Security.md) - RBAC, Pod Security Standards, and access control
+- [Kubernetes Monitoring and Troubleshooting](Kubernetes%20Monitoring%20and%20Troubleshooting.md) - Observability and debugging techniques
+- [Kubernetes Helm Package Manager](Kubernetes%20Helm%20Package%20Manager.md) - Chart management and templating for GitOps
+
+**Integration Points:**
+- **Secret Management**: External Secrets Operator, Sealed Secrets, Vault integration
+- **Progressive Delivery**: Argo Rollouts, Flagger, and canary deployment strategies
+- **Monitoring**: Prometheus, Grafana, and custom metrics for deployment validation
+- **Security**: Pod Security Standards, RBAC, and supply chain security
+
+**Best Practices Summary:**
+- Use declarative configuration stored in Git repositories
+- Implement proper RBAC and security controls
+- Monitor deployments with comprehensive observability
+- Automate testing and validation in pipelines
+- Follow least privilege principles for service accounts
+- Implement proper secret management and rotation
+- Use progressive delivery for risk reduction
+- Maintain backup and disaster recovery procedures

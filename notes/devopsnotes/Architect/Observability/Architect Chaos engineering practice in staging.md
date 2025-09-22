@@ -1,53 +1,58 @@
-# Chaos engineering practice in staging
+# Architect: Chaos engineering practice in staging
 
-# Content from previous subtopic: [[Distributed tracing and service dependency maps
+Chaos engineering is the discipline of experimenting on systems to uncover weaknesses before they impact production.
 
-Use canary tracing or distributed tracing (X-ray/Jaeger) to find slow spans.
-Isolation: scale out target group, shift traffic to healthy AZ, or use a feature-flag to disable heavy endpoints. Then patch root cause.
-
-Q: Systemd journal logs vanish on reboot across some AMIs. What to check?
-
-Checks:
-
-Confirm Storage= option in /etc/systemd/journald.conf (e.g., volatile vs persistent).
-
-Check if /var/log/journal exists and permissions; if missing, journald stores in memory — lost on reboot.
-
-Check image build steps that clean /var/log.
-
-Cloud-init or image cleanup scripts deleting journal files.
-Fix: ensure persistent journal enabled, correct permissions, and not deleted during image bake.
-
-Q: A production pod was OOMKilled but you can’t find logs. Forensic debug.
-
-Steps:
-
-Inspect kubectl describe pod and kubectl get events for OOM info; check containerStatuses.
-
-Check node dmesg and kubelet logs for OOM killer messages (which process was killed).
-
-Retrieve previous logs via kubectl logs --previous if container restarted.
-
-Check resource requests/limits — maybe limit too low.
-
-Check core dumps, if enabled (/var/lib/systemd/coredump or configured host path).
-
-Correlate with metrics (memory spike) and GC/patterns in app telemetry.
-Note: encourage enabling log persistence, resource metrics, and coredump capture for future forensic.
-
-Q: Kernel panic on a GKE node mid-deploy. How to identify infra vs image vs app?
-
-Approach:
-
-Gather node crash artifacts: serial console logs, kubelet logs, stack traces (if available).
-
-Check recent package/kernel updates or kernel modules introduced in image.
-
-Check for crash signatures across multiple nodes (if many nodes panic → infra/OS).
-
-Check node-level metrics: memory pressure, disk errors, NIC driver bugs, taints.
-
-If only nodes with specific workloads panic → inspect workload (privileged, eBPF, kernel modules).
-
-Reproduce in canary with same base image + workload; update kernel/drivers if needed.
-Checklist: image/kernel version, node autoscaler event timeline, kernel oops logs, driver/firmware versions.
+## 1. Core Concepts
+- ### Purpose
+	- Identify hidden failure modes.
+	- Validate resilience and recovery strategies.
+	- Improve confidence in production reliability.
+- ### Key Principles
+	- Start small: inject failures in staging or canary environments.
+	- Hypothesize: predict system behavior before introducing failure.
+	- Observe: monitor system responses and SLO compliance.
+	- Learn: iterate and harden the system.
+## 2. Common Chaos Scenarios
+- ### Infrastructure Failures
+	- Kill nodes, simulate disk failures, degrade network bandwidth.
+- ### Service Failures
+	- Terminate pods, induce latency, crash microservices.
+- ### Dependency Failures
+	- Simulate DB outages, API failures, or message queue lag.
+- ### Resource Saturation
+	- CPU/memory spikes, thread pool exhaustion.
+- ### Region/Zone Failures
+	- Multi-AZ or multi-region failover testing.
+## 3. Implementation Patterns
+- ### Tools
+	- Chaos Monkey / Gremlin: Controlled chaos experiments.
+	- LitmusChaos: Kubernetes-native chaos framework.
+	- Pumba: Docker container chaos testing.
+	- AWS Fault Injection Simulator (FIS): Cloud-native experiments.
+- ### Workflow
+	- Define hypothesis (e.g., "Service X will degrade gracefully under 30% node loss").
+	- Set up staging environment mirroring production.
+	- Run experiments in controlled bursts.
+	- Collect metrics, logs, and traces.
+	- Analyze results and implement mitigation strategies.
+## 4. Best Practices
+- ### Start in Staging
+	- Avoid impacting production early in adoption.
+- ### Automate Experiments
+	- Integrate into CI/CD or scheduled runs.
+- ### Observe & Alert
+	- Ensure metrics and SLOs are tracked during experiments.
+- ### Iterate Gradually
+	- Increase failure intensity as confidence grows.
+- ### Document Findings
+	- Update runbooks, improve redundancy and failover.
+- ### Safety Checks
+	- Implement kill switches to stop experiments if unintended impact occurs.
+## 5. Operational Benefits
+- ### Reliability
+	- Reduces MTTR by exposing weaknesses before production impact.
+	- Validates failover, retries, and circuit breakers.
+- ### Confidence
+	- Improves team confidence in handling unexpected failures.
+- ### Planning
+	- Guides capacity planning and autoscaling policies.

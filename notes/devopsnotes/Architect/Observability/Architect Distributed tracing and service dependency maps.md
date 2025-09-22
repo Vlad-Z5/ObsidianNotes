@@ -1,53 +1,48 @@
-# Distributed tracing and service dependency maps
+# Architect: Distributed tracing and service dependency maps
 
-# Content from previous subtopic: [[Rollback and release freeze procedures
+These tools help understand request flow, latency, and service dependencies, making root cause analysis much faster.
 
-Rollback and release freeze procedures.
-
-4. Observability & Reliability
-
- Logging/metrics/tracing architecture (ELK/EFK, Prometheus, Grafana, OpenTelemetry).
-
- SLO/SLI/SLA definition & enforcement.
-
- Alerting rules with actionable runbooks.
-
- Distributed tracing and service dependency maps.
-
- Chaos engineering practice in staging.
-
- Capacity and performance testing pipelines.
-
-5. Security & Compliance
-
- IAM best practices (least privilege, JIT access, federated SSO).
-
- Network segmentation and microsegmentation (NetworkPolicies, firewalls).
-
- Supply chain security (SLSA, sigstore, container scanning).
-
- Compliance automation (CIS, SOC2, HIPAA, PCI).
-
- Runtime security (Falco, Sysdig, Aqua).
-
- Data encryption at rest & in transit.
-
- Audit logging and immutable log storage.
-
-6. Operational Excellence
-
- Incident management process (on-call, RCA, postmortems).
-
- Change management (approvals, phased rollouts).
-
- Backup/restore validation (frequency, retention, tested restores).
-
- Config management baseline (OS hardening, patching schedule).
-
- Node and workload health remediation automation.
-
- Disaster recovery testing schedule & reporting.
-
-7. Leadership & Culture
-
- Developer self-service platform with guardrails.
+## 1. Core Concepts
+- ### Distributed Tracing
+	- Tracks a request end-to-end across multiple services.
+	- Each service adds spans (timed segments) to the trace.
+	- Provides latency, error, and bottleneck visibility.
+- ### Service Dependency Maps
+	- Visual representation of how services interact.
+	- Identifies upstream/downstream dependencies.
+	- Useful for impact analysis during outages or deployments.
+## 2. Implementation Patterns
+- ### OpenTelemetry (OTel)
+	- Instrument applications to generate traces automatically.
+	- Supports multiple languages (Java, Go, Python, Node).
+	- Collects spans, metrics, and logs in a unified format.
+- ### Tracing Backends
+	- Jaeger: Visualization and analysis of traces.
+	- Tempo: Scalable trace storage.
+	- Zipkin: Lightweight tracing solution.
+- ### Service Mesh Integration
+	- Istio, Linkerd, Consul can auto-inject trace headers.
+	- Provides out-of-the-box service dependency maps.
+- ### Visualization
+	- Grafana, Jaeger UI, Kiali (for service mesh).
+	- Shows trace duration, error rate per span, and traffic flow.
+## 3. Best Practices
+- ### Trace Context Propagation
+	- Ensure all services propagate trace IDs.
+- ### Sampling Strategies
+	- Probabilistic or rate-limited sampling to reduce overhead.
+- ### Correlation with Logs
+	- Include trace IDs in logs to pivot between metrics, logs, and traces.
+- ### Dependency Maps for Planning
+	- Use maps to plan canary deployments, understand failure impact.
+- ### Alerting on Latency & Errors
+	- Trigger alerts when traces show anomalies.
+## 4. Operational Benefits
+- ### Root Cause Analysis
+	- Faster RCA: Quickly pinpoint failing services in complex systems.
+- ### Performance
+	- Latency Analysis: Identify performance bottlenecks.
+- ### Planning
+	- Capacity Planning: Observe inter-service load and hotspots.
+- ### Impact Analysis
+	- Change Impact Assessment: See which services rely on new deployments.

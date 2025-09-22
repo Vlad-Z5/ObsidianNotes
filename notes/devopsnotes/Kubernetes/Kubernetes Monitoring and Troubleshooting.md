@@ -811,3 +811,20 @@ kubectl logs <pod-name>
 - Failed health checks (CrashLoopBackOff)
 - Configuration issues (ConfigMap/Secret missing)
 - Network connectivity problems
+
+---
+
+## Cross-References
+
+**Related Documentation:**
+- [Kubernetes Troubleshooting](Kubernetes%20Troubleshooting.md) - Comprehensive debugging guide for systematic issue resolution
+- [Kubernetes Commands](Kubernetes%20Commands.md) - kubectl commands and debugging workflows
+- [Kubernetes Networking](Kubernetes%20Networking.md) - Service discovery and network debugging
+- [Kubernetes Security](Kubernetes%20Security.md) - RBAC and security troubleshooting
+- [Kubernetes Storage](Kubernetes%20Storage.md) - Persistent volume debugging
+
+**Integration Points:**
+- **Observability Tools**: Prometheus, Grafana, Jaeger, and APM integration
+- **Log Management**: ELK/EFK stack, Fluentd, and centralized logging
+- **Alerting**: AlertManager, PagerDuty, and incident response workflows
+- **Performance**: Resource optimization, autoscaling, and capacity planning

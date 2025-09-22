@@ -1,53 +1,59 @@
-# Disaster recovery testing schedule & reporting
+# Architect: Disaster recovery testing schedule & reporting
 
-# Content from previous subtopic: [[Cloud-native cost control tools (AWS Cost Explorer, GCP Billing, Kubecost)
+Disaster recovery testing ensures that systems, applications, and data can be restored reliably in the event of a failure, outage, or disaster.
 
-What they’re testing: tradeoffs between security vs. cost vs. isolation; multi-account vs multi-namespace; runtime isolation techniques.
-Good follow-ups to ask: expected scale (# clusters, pods), compliance requirements, CI/CD model, cost sensitivity.
-Checklist bullets: RBAC least privilege, network policy deny-all, quotas, taints/tolerations, separate node pools, observability & quotas on logging/metrics.
-
-Q: What’s your approach to managing 10+ Kustomize overlays without drift or duplication?
-
-Model answer:
-
-Adopt a base + overlay pattern: one canonical base per app, overlays per environment.
-
-Don’t duplicate resources — use Kustomize patches/vars and generators.
-
-Keep environment config minimal (only environment-specific values).
-
-Use templating for secrets/configMaps via sealed-secrets/External Secrets; store overlays in Git as branches or directories with clear naming convention.
-
-Validate overlays in CI: kustomize build + kubectl apply --server-dry-run=client + schema validation (kubeval/custom schema).
-
-Periodic automated drift detection: generate manifests from each overlay and compare to canonical base or golden images.
-What they’re testing: reproducibility, GitOps hygiene, drift detection.
-Keywords to use: base/overlay, kustomize patchesStrategicPatch, sealed-secrets, CI validation, schema validation, GitOps.
-
-Q: Explain how you’d secure cross-region S3 replication and validate data integrity at scale.
-
-Model answer:
-
-Secure replication:
-
-Use S3 Replication (CRR/Cross-Region Replication) with AWS KMS — use separate CMKs in source/dest and grant replication role permissions.
-
-Enforce bucket policies & VPC endpoints, block public access.
-
-Use IAM replication role restricted to necessary actions.
-
-Use S3 Object Lock (if immutability required).
-
-Validate integrity:
-
-Rely on S3 ETag/Checksum support (S3 supports MD5/CRC/sha256 depending on upload type).
-
-Enable S3 Replication Time Control + Replication metrics & notifications for failures.
-
-Periodic validation: use S3 Inventory + manifest to compare object checksums between source and destination (or use AWS SDK to compute/check checksums).
-
-For very large scales: use checksumming pipeline (Lambda/EMR) that samples or parallel compares objects; use Batch Operations to trigger validation jobs.
-What they’re testing: KMS & IAM, practical integrity checks at scale, monitoring/alerts.
-Checklist bullets: KMS keys & grants, replication config, S3 Inventory, metrics & alerts, batch validation jobs.
-
-Q: What happens when systemd hits a failing unit in a containerized node? How would you auto-recover?
+## 1. Core Concepts
+- ### Disaster Recovery Objectives
+	- RPO (Recovery Point Objective): Maximum tolerable data loss.
+	- RTO (Recovery Time Objective): Maximum tolerable downtime.
+	- Ensures services can resume within acceptable limits after an incident.
+- ### DR Testing Goals
+	- Validate that backup, failover, and recovery processes work as expected.
+	- Identify gaps in documentation, processes, or infrastructure.
+	- Provide audit-ready evidence for compliance.
+## 2. Implementation Patterns
+- ### Testing Frequency
+	- Quarterly or semi-annual DR drills for critical systems.
+	- Monthly spot-checks for less critical services.
+	- Simulate full and partial outages across regions or clusters.
+- ### Types of DR Tests
+	- **Backup Restore Validation**
+		- Restore databases, object storage, and VMs to staging environments.
+	- **Failover Testing**
+		- Switch traffic to secondary regions, clusters, or data centers.
+	- **Chaos Engineering for DR**
+		- Simulate infrastructure failures to validate auto-scaling and failover mechanisms.
+	- **Application-Level DR**
+		- Test stateful workloads and dependent services for proper recovery.
+- ### Reporting
+	- Document:
+		- Test scenario and scope
+		- Steps executed
+		- Time to recover (RTO)
+		- Data loss (RPO)
+		- Issues and remediation items
+	- Share results with leadership and auditors.
+	- Maintain a DR test history to track improvements over time.
+- ### Automation & Orchestration
+	- Use Terraform, Ansible, Velero, or cloud-native DR tools to automate recovery steps.
+	- Integrate with monitoring and alerting for real-time observation during tests.
+## 3. Best Practices
+- ### Define Clear DR Metrics
+	- RPO and RTO per service and critical component.
+- ### Test in Production-Like Environments
+	- Ensure DR scenarios reflect realistic workloads and dependencies.
+- ### Automate Recovery Where Possible
+	- Reduce human error and increase reliability of DR processes.
+- ### Post-Test Review
+	- Document lessons learned, update runbooks, and fix gaps.
+- ### Compliance Alignment
+	- Ensure DR testing meets regulatory requirements (HIPAA, PCI, SOC2).
+## 4. Operational Benefits
+- ### Confidence
+	- Provides confidence that services can recover from outages.
+- ### Business Continuity
+	- Reduces unplanned downtime and business impact.
+- ### Compliance
+	- Ensures regulatory and internal compliance.
+- ### Readiness
+	- Improves team readiness and response during real incidents.

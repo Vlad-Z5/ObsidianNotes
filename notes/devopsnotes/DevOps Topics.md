@@ -24,7 +24,7 @@
 - [[CircleCI]]
 - [[Pulumi]]  
 - [[AWS CDK/CloudFormation]] 
-- [[Argo CD]]  
+- [[Kubernetes Argo CD]]  
 - [[Helm]]  
 - [[Prometheus]]  
 - [[Grafana]]  

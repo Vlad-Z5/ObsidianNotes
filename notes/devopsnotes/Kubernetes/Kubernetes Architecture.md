@@ -108,6 +108,7 @@ The scheduler is responsible for optimal pod placement across cluster nodes.
     - Taints and tolerations
     - Volume constraints
     - Policy constraints
+    
 2. **Scoring Phase**: Ranks suitable nodes based on:
     
     - Resource utilization balance

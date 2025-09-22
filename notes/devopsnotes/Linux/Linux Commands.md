@@ -28,11 +28,25 @@
     - `tr` (translate or delete characters) -d: delete; -s: squeeze repeated chars
     - `wc` (count lines, words, bytes) -l: lines; -w: words; -c: bytes
     - `xargs` (build argument list for commands) -n: max args per command; -p: prompt before execution
-- **File Permissions**
-    - `chmod` (changes permissions) -R: recursive
-    - `chown` (changes owner) -R: recursive
+- **File Permissions and Access Control**
+    - `chmod` (changes permissions) -R: recursive; 755, u+x, g-w, o=r formats
+        - Octal: 4=read, 2=write, 1=execute (chmod 755 file)
+        - Symbolic: u=user, g=group, o=others, a=all (chmod u+x file)
+        - Special bits: +t sticky, +s SUID/SGID (chmod +t /tmp)
+    - `chown` (changes owner) -R: recursive; user:group format
+        - Change owner: chown user file
+        - Change group: chown :group file
+        - Change both: chown user:group file
     - `chgrp` (changes group) -R: recursive
     - `umask` (sets default permission mask)
+        - View current: umask
+        - Set restrictive: umask 077 (owner only)
+        - Set permissive: umask 022 (owner write, others read)
+    - `getfacl` (get file access control lists)
+    - `setfacl` (set file access control lists)
+        - Grant access: setfacl -m u:user:rwx file
+        - Remove access: setfacl -x u:user file
+        - Recursive: setfacl -R -m g:group:rx directory
 - **File Viewing**
     - `cat` (outputs file content) -n: number lines
     - `less` (views file page by page, better for large files) -N: show line numbers
@@ -45,7 +59,7 @@
     - `ps` (process status) aux: all processes; -ef: full format
     - `top` (real-time process viewer) -u: filter by user
     - `htop` (interactive process viewer), has to be installed
-    - `pidof` <name>: get PID by name 
+    - `pidof` `<name>`: get PID by name 
     - `vmstat`: report system performance statistics
     - `kill` : SIGTERM to terminate process gracefully -9: SIGKILL to forcefully kill
     - `pkill` (kill by name)
@@ -172,11 +186,72 @@
     - `hostnamectl` (set hostname)
     - `firewall-cmd` (firewalld control)
     - `nmap` (network scanner)
-- **Miscellaneous**
+- **DevOps Automation Commands**
+    - `watch` (run command periodically) -n: interval; -d: highlight differences
+        - Monitor processes: watch -n 1 'ps aux | grep nginx'
+        - Watch file changes: watch -d ls -la /var/log
+    - `cron` (schedule jobs) and `crontab` (edit cron jobs)
+        - Edit user crontab: crontab -e
+        - List cron jobs: crontab -l
+        - Remove crontab: crontab -r
+        - Format: min hour day month dow command
+    - `at` (schedule one-time tasks) and `atq` (list scheduled tasks)
+        - Schedule task: echo "backup.sh" | at 2:00 AM tomorrow
+        - List tasks: atq
+        - Remove task: atrm job_number
+    - `nohup` (run commands immune to hangups)
+        - Background process: nohup long_process.sh &
+        - With output redirection: nohup command > output.log 2>&1 &
+    - `screen` (terminal multiplexer)
+        - Create session: screen -S session_name
+        - Detach: Ctrl+A, D
+        - Reattach: screen -r session_name
+        - List sessions: screen -ls
+    - `tmux` (terminal multiplexer)
+        - New session: tmux new-session -s name
+        - Detach: Ctrl+B, D
+        - Attach: tmux attach -t name
+        - List sessions: tmux list-sessions
+- **Container and Virtualization Commands**
+    - `docker` (container management)
+        - List containers: docker ps -a
+        - Run container: docker run -d --name container image
+        - Execute in container: docker exec -it container bash
+        - View logs: docker logs -f container
+        - Remove container: docker rm container
+        - Remove image: docker rmi image
+    - `podman` (alternative container runtime)
+        - Same syntax as docker for most commands
+        - Rootless containers: podman run --rm -it image
+    - `kubectl` (Kubernetes management)
+        - Get resources: kubectl get pods,services,deployments
+        - Describe resource: kubectl describe pod pod-name
+        - Apply config: kubectl apply -f config.yaml
+        - View logs: kubectl logs -f pod-name
+        - Execute in pod: kubectl exec -it pod-name -- bash
+- **Configuration Management**
+    - `ansible` (automation and configuration)
+        - Run playbook: ansible-playbook playbook.yml
+        - Ad-hoc commands: ansible all -m shell -a "uptime"
+        - Check mode: ansible-playbook --check playbook.yml
+        - Gather facts: ansible all -m setup
+    - `puppet` (configuration management)
+        - Apply manifest: puppet apply manifest.pp
+        - Test syntax: puppet parser validate manifest.pp
+        - Check resources: puppet resource user
+    - `chef` (infrastructure automation)
+        - Run cookbook: chef-client -r "recipe[cookbook]"
+        - Test cookbook: foodcritic cookbook/
+- **Miscellaneous System Tools**
     - `clear` (clear terminal)
     - `history` (command history)
-    - `watch` (run command periodically)
-    - `cron` (schedule jobs)
-    - `crontab` (edit cron jobs)
-    - `sleep` (delay execution)
-    - `time` (measure execution time)
+        - Search history: Ctrl+R
+        - Execute by number: !123
+        - Execute last command: !!
+        - Execute last command with pattern: !grep
+    - `sleep` (delay execution) - sleep 5s, sleep 2m, sleep 1h
+    - `time` (measure execution time) - time command
+    - `timeout` (run command with time limit) - timeout 30s command
+    - `parallel` (run commands in parallel)
+        - Run jobs: parallel echo {} ::: 1 2 3 4
+        - From file: parallel -j 4 < command_list.txt

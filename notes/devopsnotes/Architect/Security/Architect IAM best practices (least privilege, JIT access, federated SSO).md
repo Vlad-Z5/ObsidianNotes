@@ -1,152 +1,54 @@
-# Security & Compliance (IAM, Zero-Trust, Secrets, Supply Chain, Governance)
-
-A DevOps Architect must treat security as a core design principle, not a bolt-on. This includes identity, access, secrets, runtime security, and compliance frameworks across AWS, on-prem, and hybrid environments.
-
-## 1. Identity & Access Management (IAM)
-
-### AWS
-
-IAM Roles > IAM Users.
-
-Principle of Least Privilege (PoLP).
-
-IRSA (IAM Roles for Service Accounts) in EKS → fine-grained pod-level access.
-
-SCPs (Service Control Policies) in AWS Organizations → guardrails across accounts.
-
-### On-Prem
-
-Integrate LDAP/AD for RBAC.
-
-Kubernetes → map RBAC to corporate identity provider (OIDC/SAML).
-
-**Best Practice:**
-All human access → SSO + MFA. No long-lived keys.
-
-## 2. Zero-Trust Networking
-
-### Segmentation:
-
-Kubernetes Network Policies (Calico, Cilium).
-
-AWS Security Groups + NACLs per workload.
-
-### mTLS Everywhere:
-
-Service mesh (Istio/App Mesh) for pod-to-pod encryption.
-
-### Boundary Enforcement:
-
-API Gateway / WAF at ingress.
-
-PrivateLink / Transit Gateway for internal traffic.
-
-**Pattern:** Trust nothing by default → authenticate + authorize every request.
-
-## 3. Secrets Management
-
-AWS → Secrets Manager, SSM Parameter Store (with KMS).
-
-On-Prem → HashiCorp Vault, CyberArk.
-
-Kubernetes → External Secrets Operator (ESO) to inject from AWS/Vault.
-
-**Best Practice:**
-
-Rotate secrets automatically.
-
-No plain-text in Git.
-
-Audit secret usage.
-
-## 4. Supply Chain Security
-
-### CI/CD Controls:
-
-Code scanning (Semgrep, SonarQube).
-
-Dependency scanning (Snyk, Dependabot).
-
-### Image Security:
-
-Scan images in CI (Trivy, Aqua, Prisma).
-
-Sign images with Cosign/Notary (SLSA compliance).
-
-### SBOM (Software Bill of Materials):
-
-Generate via Syft/Anchore.
-
-Store alongside artifacts for audit.
-
-**Goal:** Prevent tampering, ensure provenance, guarantee integrity.
-
-## 5. Runtime Security
-
-**Tools:** Falco, Aqua, Prisma Cloud.
-
-### Detection:
-
-Privilege escalation attempts.
-
-Suspicious syscalls (e.g., crypto mining).
-
-Unexpected outbound traffic.
-
-### Response:
-
-Quarantine pods/nodes.
-
-Auto-revoke compromised IAM tokens.
-
-Integrate alerts with SOAR/SIEM.
-
-## 6. Compliance & Governance
-
-### Frameworks:
-
-SOC 2, HIPAA, PCI-DSS, FedRAMP (depending on org).
-
-### AWS Services:
-
-AWS Config → compliance checks.
-
-Security Hub → central findings.
-
-GuardDuty → threat detection.
-
-Macie → sensitive data in S3.
-
-### Policy-as-Code:
-
-OPA, Conftest, Checkov → enforce compliance at build & deploy.
-
-**Pattern:** Shift-left compliance (scan Terraform, Helm, Dockerfiles before prod).
-
-## 7. Observability for Security
-
-Centralize logs (CloudWatch, ELK, Loki).
-
-Use CloudTrail + GuardDuty for AWS activity monitoring.
-
-On-prem → Syslog → SIEM (Splunk, ELK).
-
-Correlate auth logs, network flows, and app traces.
-
-## 8. Hybrid/On-Prem Security
-
-### Connectivity:
-
-Encrypted VPN/DX tunnels (IPSec, TLS).
-
-Rotate keys + certs regularly.
-
-### Key Management:
-
-AWS KMS multi-region keys.
-
-On-prem HSM (HashiCorp Vault, Thales).
-
-### Federated Identity:
-
-SSO spanning AWS + on-prem AD.
+# Architect: IAM best practices (least privilege, JIT access, federated SSO)
+
+Identity and Access Management (IAM) ensures that users, services, and applications have only the permissions they need, reducing the attack surface and preventing accidental misconfigurations.
+
+## 1. Core Principles
+- ### Least Privilege
+	- Grant only the permissions required for a user or service to perform their job.
+	- Example: A CI/CD pipeline only needs write access to the artifact repository, not full cluster admin rights.
+- ### Just-In-Time (JIT) Access
+	- Grant temporary elevated permissions only when needed.
+	- Reduces standing privileges and risk of compromise.
+- ### Federated Single Sign-On (SSO)
+	- Integrate corporate identity providers (Okta, Azure AD, Google Workspace) with cloud IAM.
+	- Centralizes authentication and simplifies user lifecycle management.
+## 2. Implementation Patterns
+- ### A. AWS Example
+	- Use IAM roles and policies instead of long-lived credentials.
+	- Cross-account roles for temporary access to production resources.
+	- Enable AWS SSO / IAM Identity Center with corporate IdP.
+	- Use session policies for JIT access, e.g., allow admin only for 1 hour.
+- ### B. Kubernetes Example
+	- Map IAM roles to Kubernetes RBAC roles via IRSA (IAM Roles for Service Accounts) in EKS.
+	- Restrict pod/service permissions to the minimum needed API access.
+- ### C. CI/CD Integration
+	- Pipelines assume ephemeral service accounts with scoped permissions.
+	- Rotate secrets and keys automatically; never store credentials in Git.
+## 3. Best Practices
+- ### Role-Based Access Control (RBAC)
+	- Assign permissions via roles, not individual users.
+	- Apply consistently across cloud accounts and services.
+- ### Policy Granularity
+	- Use fine-grained IAM policies instead of broad permissions.
+	- Example: s3:GetObject instead of s3:*.
+- ### JIT / Temporary Credentials
+	- Implement session expiration and automated revocation.
+	- Use tools like AWS STS, Vault dynamic credentials, or Azure PIM.
+- ### Audit and Monitoring
+	- Enable CloudTrail, CloudWatch, or GCP Audit Logs.
+	- Monitor for unexpected privilege escalations.
+- ### Federation
+	- Centralize identity with SSO.
+	- Enforce MFA and strong authentication policies.
+- ### Secrets Management Integration
+	- Avoid embedding IAM credentials in code.
+	- Use Vault, External Secrets, or cloud-native secret managers.
+## 4. Operational Benefits
+- ### Risk Reduction
+	- Reduces risk of accidental or malicious access.
+- ### Compliance
+	- Improves auditing and compliance for SOC2, HIPAA, PCI.
+- ### User Management
+	- Simplifies user onboarding/offboarding.
+- ### Temporary Access
+	- Enables temporary elevated access without leaving standing admin privileges.

@@ -1,4 +1,0 @@
-- `/etc/passwd` – Stores user account details
-- `/etc/shadow` – Stores encrypted user passwords
-- `/etc/group` – Stores group information
-- `/etc/gshadow` – Stores secure group details
