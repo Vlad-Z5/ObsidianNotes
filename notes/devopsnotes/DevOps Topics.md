@@ -44,6 +44,7 @@
 
 ## Tertiary Focus Areas
 
+- [[Thanos]]
 - [[Types of Deployments (Blue/Green, Canary, Rolling)]]  
 - [[Ansible]]  
 - [[Chef/Puppet]]  
